@@ -8,15 +8,25 @@ Created on Fri Feb 14 12:57:30 2025
 import sqlite3
 from PyQt5.QtWidgets import ( 
     QWidget,  QTableWidget, QTableWidgetItem, QListWidget,
-    QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTextEdit,
+    QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTextEdit, QScrollArea,
     QGridLayout, QComboBox, QMessageBox, QDialog, QRadioButton, QButtonGroup
     )
 import pandas as pd
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
 # Create widgets for print settings and fill it automatically with values 
 def widget_printsettings(self, parent, modify_flag_printsettings = False, from_ordertab = False):
-    layout = QVBoxLayout()
+    # make it scrollable in case resizing needed
+    dialog_layout = QVBoxLayout(parent)## Main layout
+    
+    scroll_area = QScrollArea(parent) #scroll area
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
+    
     grid_layout = QGridLayout()  # Grid layout for proper alignment
     
     ## Function to fetch setting from database and fill in all data
@@ -94,7 +104,7 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
     ## --- Fields for Print Settings ---
     fields = [
         ("Setting's Name", None),
-        ("NozzleSize", "mm"),
+        ("NozzleSize", ["0.25 mm", "0.4 mm", "0.6 mm", "0.8 mm"]),
         ("Infill", "%"), 
         ("LayerHeight", "mm"),
         ("Speed", "mm/s"),
@@ -103,8 +113,7 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
         ("Glue", ["Yes", "No"]),     # Dropdown
         ("NozzleTemperature", "°C"),
         ("BedTemperature", "°C"),
-        ("Notes", None)  # No unit label
-    ]
+        ("Notes", None) ]
     
     max_label_width = 120  # Set a max width for labels
     input_width = 100  # Set a standard width for input fields
@@ -123,7 +132,10 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
             widget = QComboBox()
             widget.addItems(unit)
             if not modify_flag_printsettings:
-                widget.setCurrentText(default_values.get(field, "No"))
+                if field == "NozzleSize":
+                    widget.setCurrentText(default_values.get(field, "0.4 mm"))
+                else:
+                    widget.setCurrentText(default_values.get(field, "No"))
             grid_layout.addWidget(widget, row, 1)  # Add in column 1
         else:  # If it's a normal text field (QLineEdit)
             widget = QLineEdit()
@@ -157,7 +169,9 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
         layout.addWidget(save_button)
         self.new_printset_entries = printsettings_entries
 
-    parent.setLayout(layout)
+    #set layout
+    scroll_area.setWidget(scroll_content)
+    dialog_layout.addWidget(scroll_area)
 
     parent.closeEvent = lambda event: self.close_event(event, parent)  
     parent.show()
@@ -336,9 +350,10 @@ def open_handle_printsetting_window(self):
 #%% ADD SETTINGS, with default values in
 def open_add_printsetting_window(self, from_ordertab = False):
     # Create a new window for adding
-    self.add_window_printset = QDialog(self)
+    self.add_window_printset = QDialog(None)
     self.add_window_printset.setWindowTitle("Add New Print Setting")
-    # self.add_window_printset.resize(500, 600)
+    self.add_window_printset.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_window_printset.resize(400, 500)
 
     # Generate a new PrintSettingID
     try:
@@ -355,9 +370,10 @@ def open_add_printsetting_window(self, from_ordertab = False):
 #%% MODIFY SETTINGS
 def open_modify_printsetting_window(self, from_ordertab = False):
     # Ask for ID to modify
-    self.modify_window_printset = QDialog(self)
+    self.modify_window_printset = QDialog(None)
     self.modify_window_printset.setWindowTitle("Modify Print Setting")
-    # self.modify_window_printset.resize(500, 600)
+    self.modify_window_printset.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.modify_window_printset.resize(400, 500)
     
     # Get the entry fields 
     self.widget_printsettings(self.modify_window_printset, modify_flag_printsettings = True)
@@ -372,15 +388,15 @@ def save_printsettings(self, modify_flag_printsettings = False, from_ordertab = 
 
     # Fields validation
     for key, widget in entries.items():
-        if key in ["NozzleSize", "Infill", "LayerHeight", "Speed", "NozzleTemperature", "BedTemperature"]:
+        if key == "Setting's Name":
+            if not widget.text().strip():
+                QMessageBox.critical(self, "Validation Error", "Mandatory fields missing.")
+                return 
+        elif key in ["Infill", "LayerHeight", "Speed", "NozzleTemperature", "BedTemperature"]:
             try:
                 float(widget.text())
             except ValueError:
                 QMessageBox.critical(None, "Validation Error", f"{key} must be a number.")
-                return
-        elif key in ["Support", "Brim", "Glue"]:
-            if widget.currentText() not in ["Yes", "No"]:  
-                QMessageBox.critical(None,"Validation Error", f"Invalid Condition selected in {key}.")
                 return
 
     # Get values from entry fields
@@ -425,8 +441,9 @@ def save_printsettings(self, modify_flag_printsettings = False, from_ordertab = 
     
 #%% REMOVE PRINT SETTING
 def open_remove_printsettings_window(self, from_ordertab=False):
-    self.remove_window_printset = QDialog(self)
+    self.remove_window_printset = QDialog(None)
     self.remove_window_printset.setWindowTitle("Remove Print Setting")
+    self.remove_window_printset.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_window_printset.resize(300, 200)
 
     layout = QVBoxLayout()

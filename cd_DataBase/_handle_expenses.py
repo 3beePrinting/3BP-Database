@@ -6,7 +6,7 @@ Created on Sun Dec 22 13:19:46 2024
 """
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QLineEdit, QTextEdit, QComboBox, QPushButton, QDateEdit,
-    QVBoxLayout, QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QDialog
+    QVBoxLayout, QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QDialog, QScrollArea
 )
 from PyQt5.QtCore import QSize, QDate, Qt
 from PyQt5.QtGui import QIcon, QFont
@@ -46,7 +46,16 @@ def open_handle_expenses_window(self):
 
 #%% WIDGET CREATION
 def expense_widget(self, window, modify_expense_flag=False):
-    layout = QVBoxLayout()
+    ## Main layout
+    dialog_layout = QVBoxLayout(window)
+    
+    # Scroll Area
+    scroll_area = QScrollArea(window)
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
 
     expense_entries = {}   
     
@@ -445,7 +454,13 @@ def expense_widget(self, window, modify_expense_flag=False):
         save_button.clicked.connect(self.save_expense)
         layout.addWidget(save_button)
 
-    window.setLayout(layout)
+    scroll_area.setWidget(scroll_content)
+
+    # Add scroll area to dialog layout
+    dialog_layout.addWidget(scroll_area)
+    
+    # self.add_expense_window.exec_()
+    # window.setLayout(layout)
     
     window.closeEvent = lambda event: self.close_event(event, window)  
     window.show()
@@ -453,9 +468,10 @@ def expense_widget(self, window, modify_expense_flag=False):
 #%% ADDING NEW EXPENSE
 def open_add_expense_window(self):
     # Create a new window for adding a new expense
-    self.add_expense_window = QDialog(self)
+    self.add_expense_window = QDialog(None)
     self.add_expense_window.setWindowTitle("Add New Expense")
-    self.add_expense_window.resize(400, 400)
+    self.add_expense_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_expense_window.resize(600, 800)
     
     # Generate a new OCnumber
     start_OCnumber = 600
@@ -585,8 +601,9 @@ def save_expense(self, modify_expense_flag=False):
 #%% MODIFYING EXPENSE
 def open_modify_expense_window(self):
     # Ask for employee ID to modify
-    self.modify_window_exp = QDialog(self)
+    self.modify_window_exp = QDialog(None)
     self.modify_window_exp.setWindowTitle("Modify Employee")
+    self.modify_window_exp.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_window_exp.resize(600, 800)
     
     # Get the entry fields 
@@ -594,8 +611,9 @@ def open_modify_expense_window(self):
 
 #%% REMOVING EXPENSES
 def open_remove_expense_window(self):
-    self.remove_window_exp = QDialog(self)
+    self.remove_window_exp = QDialog(None)
     self.remove_window_exp.setWindowTitle("Remove Expense")
+    self.remove_window_exp.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_window_exp.resize(300, 200)
 
     layout = QVBoxLayout()

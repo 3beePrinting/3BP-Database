@@ -9,7 +9,6 @@ V10 22/04/2025
 
 import sys
 from PyQt5.QtWidgets import QApplication, QInputDialog
-from PyQt5.QtGui import QIcon
 from cd_DataBase import DatabaseApp
 from db_initialize import initialize_db
 import json
@@ -51,10 +50,7 @@ def ask_initial_questions():
     save_settings(settings)
     return settings
 
-if __name__ == "__main__":
-    # Initialize database file name and structure
-    dbfile_name = "3beeprinting.db"
-    initialize_db(dbfile_name)
+if __name__ == "__main__":    
     
     app = QApplication(sys.argv)
     
@@ -62,12 +58,15 @@ if __name__ == "__main__":
     settings = load_settings()
     if not settings:
         settings = ask_initial_questions()
+        
+    # Initialize database file name and structure
+    dbfile_name = os.path.join(settings["one_drive_local_path"], "09 Development", "04 Python Database 2025", "3beeprinting.db")
+    # dbfile_name = os.path.join(settings["one_drive_local_path"], "3beeprinting2.db")
+    # dbfile_name = "3beeprinting2.db"
+    initialize_db(dbfile_name)
     
     # Create main window instance (DatabaseApp is a QMainWindow subclass)
     main_window = DatabaseApp(dbfile_name, settings)
-    
-    # Set the window icon (ensure the image file exists in the working directory)
-    main_window.setWindowIcon(QIcon(os.getcwd() + r"\images\3bp_logo.png"))
     
     # Show the window maximized
     main_window.showMaximized()

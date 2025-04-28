@@ -8,8 +8,8 @@ Code for order tab1
 """
 
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QComboBox, QTableWidget,
-    QTableWidgetItem, QMenu, QDateEdit, QFileDialog, QMessageBox, QGridLayout, QTextEdit)
+    QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QComboBox, QTableWidget,QWidget,
+    QTableWidgetItem, QMenu, QDateEdit, QFileDialog, QMessageBox, QGridLayout, QTextEdit, QScrollArea)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QDate
 import os
@@ -21,8 +21,18 @@ import subprocess
 def tab1_widgets(self, frame, modify_flag = False):
     self.incorrect_info_flag = False        
     order_entries_tab1 = {} 
+
+    # Create a container widget inside the scroll area
+    container_widget = QWidget()
+
+    layout = QGridLayout(container_widget)
     
-    layout = QGridLayout()
+    def check_fields_before_fileUpload():
+        # Enable button only if all required fields are filled
+        if order_entries_tab1["customerid"].text().strip() and order_entries_tab1["description"].text().strip():
+            folder_upl_button.setEnabled(True)
+        else:
+            folder_upl_button.setEnabled(False)
     
     # --- Customer Fields ---
     row_nr = 1
@@ -49,6 +59,7 @@ def tab1_widgets(self, frame, modify_flag = False):
     self.first_last_name_label.setWordWrap(False)
     self.first_last_name_label.setFixedHeight(20)
     layout.addWidget(self.first_last_name_label, row_nr, 1)  # Just one cell
+    self.customer_id_entry.textChanged.connect(check_fields_before_fileUpload)
 
     order_entries_tab1["customerid"] = self.customer_id_entry
 
@@ -72,12 +83,7 @@ def tab1_widgets(self, frame, modify_flag = False):
     description_entry = QLineEdit()
     layout.addWidget(description_entry, row_nr, 1)
     order_entries_tab1["description"] = description_entry
-
-    # FOLDER BUTTON 
-    folder_upl_button = QPushButton("Upload Files")
-    folder_upl_button.setIcon(QIcon( self.resource_path("images/add_folder.png") ))
-    folder_upl_button.clicked.connect( self.fun_folder_upload )
-    layout.addWidget(folder_upl_button, row_nr, 2)
+    order_entries_tab1["description"].textChanged.connect(check_fields_before_fileUpload)
     
     # --- Dates ---
     row_nr+=1
@@ -89,6 +95,13 @@ def tab1_widgets(self, frame, modify_flag = False):
         date_ordered.setDate(QDate.currentDate())
     layout.addWidget(date_ordered, row_nr, 1)
     order_entries_tab1["date_ordered"] = date_ordered
+    
+    # FOLDER BUTTON 
+    folder_upl_button = QPushButton("Upload Files")
+    folder_upl_button.setIcon(QIcon( self.resource_path("images/add_folder.png") ))
+    folder_upl_button.clicked.connect( self.fun_folder_upload )
+    folder_upl_button.setEnabled(False)
+    layout.addWidget(folder_upl_button, row_nr, 2)
 
     row_nr+=1
     layout.addWidget(QLabel("Date Required"), row_nr, 0)
@@ -268,7 +281,7 @@ def tab1_widgets(self, frame, modify_flag = False):
     layout.addWidget(next_button, 12, 5, alignment=Qt.AlignRight)
     next_button.clicked.connect(go_to_tab2)
     
-    frame.setLayout(layout)
+    frame.setWidget(container_widget)
     
     
 #%% Make parts table in tab1
@@ -516,7 +529,7 @@ Please find attached the details of the assigned job.
         print(f"An error occurred: {e}")
         
 # Function to create folder and upload files received
-def fun_folder_upload(self):        
+def fun_folder_upload(self):       
     order_id = self.orderid
         
     # Build the folder name using PyQt widgets
@@ -525,46 +538,52 @@ def fun_folder_upload(self):
     description = self.order_entries_tab1["description"].text()
     
     folder_name = f"{date_str}_OrderID{order_id}_CustomerID{customer_id}_{description}"
-    self.order_entries_tab1["folder_name"] = folder_name
-    folder_path = os.path.join(self.upload_folder_path, folder_name)
-    os.makedirs(folder_path, exist_ok=True)
     
-    # Create subfolders
-    stl_folder_path = os.path.join(folder_path, "stl")
-    gcode_folder_path = os.path.join(folder_path, "gcode")
-    other_folder_path = os.path.join(folder_path, "other_files")
-    os.makedirs(stl_folder_path, exist_ok=True)
-    os.makedirs(gcode_folder_path, exist_ok=True)
-    os.makedirs(other_folder_path, exist_ok=True)
+    #Ask to check good file name before creating
+    confirmation = QMessageBox.question(
+        self, "Confirm Deletion",
+        f"The following folder will be created: {folder_name} \nClick Yes to continue.")
+    if confirmation == QMessageBox.Yes:
+        self.order_entries_tab1["folder_name"] = folder_name
+        folder_path = os.path.join(self.upload_folder_path, folder_name)
+        os.makedirs(folder_path, exist_ok=True)
+        
+        # Create subfolders
+        stl_folder_path = os.path.join(folder_path, "stl")
+        gcode_folder_path = os.path.join(folder_path, "gcode")
+        other_folder_path = os.path.join(folder_path, "other_files")
+        os.makedirs(stl_folder_path, exist_ok=True)
+        os.makedirs(gcode_folder_path, exist_ok=True)
+        os.makedirs(other_folder_path, exist_ok=True)
+        
+        # Open file dialog to select files
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Select files to upload")
     
-    # Open file dialog to select files
-    file_paths, _ = QFileDialog.getOpenFileNames(self, "Select files to upload")
-
-    if not file_paths:
-        QMessageBox.information(self, "No Files Selected", "No files were selected for upload.")
-        return
-    # Move selected files to the appropriate folder
-    for file_path in file_paths:
-        file_extension = os.path.splitext(file_path)[1].lower()
-
+        if not file_paths:
+            QMessageBox.information(self, "No Files Selected", "No files were selected for upload.")
+            return
+        # Move selected files to the appropriate folder
+        for file_path in file_paths:
+            file_extension = os.path.splitext(file_path)[1].lower()
+    
+            try:
+                if file_extension in [".stl", ".stp", ".step", ".obj", ".dwg", ".dxf"]:
+                    shutil.copy(file_path, stl_folder_path)
+                elif file_extension == ".gcode":
+                    shutil.copy(file_path, gcode_folder_path)
+                else:
+                    shutil.copy(file_path, other_folder_path)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to copy file: {file_path}\n{str(e)}")
+    
+         # Open the folder automatically after upload**
         try:
-            if file_extension in [".stl", ".stp", ".step", ".obj", ".dwg", ".dxf"]:
-                shutil.copy(file_path, stl_folder_path)
-            elif file_extension == ".gcode":
-                shutil.copy(file_path, gcode_folder_path)
-            else:
-                shutil.copy(file_path, other_folder_path)
+            if os.name == "nt":  # Windows
+                os.startfile(folder_path)
+            elif os.name == "posix":  # macOS / Linux
+                subprocess.Popen(["open", folder_path])  # macOS
+                # subprocess.Popen(["xdg-open", folder_path])  # Linux alternative
+            print(f"Folder opened: {folder_path}")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to copy file: {file_path}\n{str(e)}")
-
-     # Open the folder automatically after upload**
-    try:
-        if os.name == "nt":  # Windows
-            os.startfile(folder_path)
-        elif os.name == "posix":  # macOS / Linux
-            subprocess.Popen(["open", folder_path])  # macOS
-            # subprocess.Popen(["xdg-open", folder_path])  # Linux alternative
-        print(f"Folder opened: {folder_path}")
-    except Exception as e:
-        print(f"Error opening folder: {e}")
-    
+            print(f"Error opening folder: {e}")
+        

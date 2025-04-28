@@ -9,7 +9,7 @@ Code for tab3 (Overview of teh order)
 
 from PyQt5.QtWidgets import (
     QLabel, QVBoxLayout, QHBoxLayout,QPushButton,
-    QMessageBox, QTextEdit, QGroupBox, QComboBox )
+    QMessageBox, QTextEdit, QGroupBox, QComboBox, QScrollArea, QWidget )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import win32com.client as win32
@@ -18,8 +18,9 @@ import win32com.client as win32
 #%% TAB 3 - Overview of the order widget
 # In this tab, I want to show the order details to confirm everything before saving
 def tab3_widgets(self, frame, modify_flag = False):
-    layout = QVBoxLayout()
-    frame.setLayout(layout)
+    container_widget = QWidget()
+    
+    layout = QVBoxLayout(container_widget)
     
     # Placeholder to hold the info box so we can update it
     self.info_box_tab3 = None
@@ -194,6 +195,7 @@ Details for OrderID {self.orderid}:
     layout.addWidget(prev_button, alignment=Qt.AlignLeft)
     prev_button.clicked.connect(self.go_to_previous_tab)
         
+    frame.setWidget(container_widget)
     
 #%% EMAIL FUNCTIONS
  # Send request to colleague to check quotation
@@ -259,7 +261,7 @@ def fun_client_email(self, language_combo):
         
         customerid = self.order_entries_tab1["customerid"].text()
         self.cursor.execute("SELECT Email FROM customers WHERE CustomerID = ?", (customerid))
-        recipient = self.cursor.fetchone()
+        recipient = self.cursor.fetchone()[0]
     except:
         QMessageBox.critical(None, "Error", "Insufficient data inputted.")
     

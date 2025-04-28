@@ -6,10 +6,11 @@ Handling suppliers window: add, modify, remove
 """
 
 import sqlite3
-from PyQt5.QtWidgets import ( 
-    QVBoxLayout, QGroupBox, QGridLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QTextEdit, QComboBox, QMessageBox, QDialog  
+from PyQt5.QtWidgets import ( QVBoxLayout, QGroupBox, QGridLayout, QHBoxLayout, QPushButton, QLabel,
+    QLineEdit, QTextEdit, QComboBox, QMessageBox, QDialog, QScrollArea, QWidget 
     )
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
 def open_handle_suppliers_window(self):
     # Open a new window for supplier modifications
@@ -44,7 +45,15 @@ def open_handle_suppliers_window(self):
     
 #%% WIDGET    
 def supplier_widget(self, window, modify_supplier_flag=False):
-    layout = QVBoxLayout()
+    # make it scrollable in case resizing needed
+    dialog_layout = QVBoxLayout(window)## Main layout
+    
+    scroll_area = QScrollArea(window) #scroll area
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
 
     ## Function to fetch supplier from database and fill in all data
     def fetch_supplier_to_modify():
@@ -169,7 +178,10 @@ def supplier_widget(self, window, modify_supplier_flag=False):
         save_button.clicked.connect(self.save_supplier)
         layout.addWidget(save_button)
     self.entries_supplier = entries_supplier
-    window.setLayout(layout)
+    
+    #set layout
+    scroll_area.setWidget(scroll_content)
+    dialog_layout.addWidget(scroll_area)
 
     window.closeEvent = lambda event: self.close_event(event, window)  
     window.show()
@@ -177,9 +189,10 @@ def supplier_widget(self, window, modify_supplier_flag=False):
 #%% ADDING SUPPLIER
 def open_add_supplier_window(self):
     # Create a new window for adding an employee
-    self.add_supplier_window = QDialog(self)
+    self.add_supplier_window = QDialog(None)
     self.add_supplier_window.setWindowTitle("Add New Supplier")
-    # self.add_suppliers_window.resize(500, 600)
+    self.add_supplier_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_supplier_window.resize(500, 600)
     
     # Get the customer entry fields 
     self.supplier_widget(self.add_supplier_window)
@@ -268,17 +281,19 @@ def save_supplier(self, modify_supplier_flag = False):
 #%% MODIFY SUPPLIER
 def open_modify_supplier_window(self):
     # Ask for SupplierID to modify
-    self.modify_supplier_window = QDialog(self)
+    self.modify_supplier_window = QDialog(None)
     self.modify_supplier_window.setWindowTitle("Modify Supplier")
-    # self.modify_supplier_window.resize(500, 600)
+    self.modify_supplier_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.modify_supplier_window.resize(500, 600)
     
     # Get the supplier entry fields 
     self.supplier_widget(self.modify_supplier_window, modify_supplier_flag = True)
 
 #%% REMOVE SUPPLIER
 def open_remove_supplier_window(self):    
-    self.remove_supplier_window = QDialog(self)
+    self.remove_supplier_window = QDialog(None)
     self.remove_supplier_window.setWindowTitle("Remove Supplier")
+    self.remove_supplier_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_supplier_window.resize(300, 200)
 
     layout = QVBoxLayout()

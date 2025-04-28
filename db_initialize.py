@@ -98,7 +98,7 @@ def initialize_db(dbfile_name):
                         PrintSizeX REAL,
                         PrintSizeY REAL,
                         PrintSizeZ REAL,
-                        NozzleSizeOn REAL,
+                        NozzleSizeOn TEXT,
                         Status TEXT,
                         Condition TEXT, 
                         TotalHours INTEGER,
@@ -173,7 +173,7 @@ def initialize_db(dbfile_name):
     cursor.execute('''CREATE TABLE IF NOT EXISTS printsettings (
                         PrintSettingID INTEGER PRIMARY KEY,
                         SettingName TEXT,
-                        NozzleSize REAL,
+                        NozzleSize TEXT,
                         Infill REAL,
                         LayerHeight REAL,
                         Speed REAL,
@@ -191,11 +191,11 @@ def initialize_db(dbfile_name):
     # Insert default values if the table is empty
     if row_count == 0:
         default_values = [
-            (1, "Default PLA", 0.4, 15.0, 0.2, 60.0, 'Yes', 'Yes', 'No', 215, 60, ""),
-            (2, "Default ABS", 0.4, 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 255, 100, ''),
-            (3, "Default ASA", 0.4, 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 260, 105, ''),
-            (4, "Default PETG", 0.4, 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 230, 85, ''),
-            (5, "Default FLEXIBLE", 0.4, 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 260, 85, '')]
+            (1, "Default PLA", "0.4 mm", 15.0, 0.2, 60.0, 'Yes', 'Yes', 'No', 215, 60, ""),
+            (2, "Default ABS", "0.4 mm", 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 255, 100, ''),
+            (3, "Default ASA", "0.4 mm", 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 260, 105, ''),
+            (4, "Default PETG", "0.4 mm", 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 230, 85, ''),
+            (5, "Default FLEXIBLE", "0.4 mm", 15.0, 0.2, 60.0, 'Yes', 'Yes', 'Yes', 260, 85, '')]
     
         cursor.executemany('''INSERT INTO printsettings (PrintSettingID, SettingName, NozzleSize, Infill, LayerHeight, Speed, Support, Brim, 
                            Glue, NozzleTemperature, BedTemperature, Notes)

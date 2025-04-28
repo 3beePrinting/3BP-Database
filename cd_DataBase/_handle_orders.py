@@ -8,7 +8,7 @@ Requests / orders handling windows
 import sqlite3
 from PyQt5.QtWidgets import ( QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QMenu, QTabWidget, QDateEdit, QFileDialog,
-    QMessageBox, QGridLayout, QFrame, QGroupBox, QTextEdit,
+    QMessageBox, QGridLayout, QFrame, QGroupBox, QTextEdit, QScrollArea,
     QDialog, QSpacerItem, QSizePolicy )
 from PyQt5.QtCore import Qt
 import re
@@ -70,17 +70,20 @@ def orders_setup_tabs(self, window, modify_flag = False):
     layout.addWidget(self.notebook)
 
     # Tab 1 - Order Tracking Tab
-    ordertracking_tab = QWidget()
+    ordertracking_tab = QScrollArea()
+    ordertracking_tab.setWidgetResizable(True)
     self.notebook.addTab(ordertracking_tab, "Order Tracking")
     self.tab1_widgets(ordertracking_tab, modify_flag)
 
     # --- Tab 2 - Price Estimation ---
-    priceestimation_tab = QWidget()
+    priceestimation_tab = QScrollArea()
+    priceestimation_tab.setWidgetResizable(True)
     self.notebook.addTab(priceestimation_tab, "Price Estimation")
     self.tab2_widgets(priceestimation_tab, modify_flag)
  
     # Tab 3 - Overview of the order
-    overview_tab = QWidget()
+    overview_tab = QScrollArea()
+    overview_tab.setWidgetResizable(True)
     self.notebook.addTab(overview_tab, "Order Overview")
     self.tab3_widgets(overview_tab, modify_flag)
     
@@ -94,8 +97,8 @@ def open_add_order_window(self):
     self.add_order_window = QDialog(None)
     self.add_order_window.setWindowTitle("Add New Request")
     # self.add_order_window.showMaximized()
-    self.add_order_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
-    self.add_order_window.resize(1800, 800)  # Width, Height
+    self.add_order_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_order_window.resize(1600, 700)  # Width, Height
 
     # Generate a new OrderID
     try:

@@ -6,7 +6,7 @@ Handling Printer and filament inventories
 """
 import sqlite3
 from PyQt5.QtWidgets import (  QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit, QTextEdit,
-    QGridLayout, QComboBox, QMessageBox, QDialog, QDateEdit, QCheckBox  )
+    QGridLayout, QComboBox, QMessageBox, QDialog, QDateEdit, QCheckBox, QScrollArea, QWidget  )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, QDate, Qt
 import os
@@ -46,7 +46,15 @@ def open_handle_printers_window(self):
     
 #%% PRINTER WIDGET
 def printer_widgets(self, window, modify_printer_flag=False):
-    layout = QVBoxLayout()
+    # make it scrollable in case resizing needed
+    dialog_layout = QVBoxLayout(window)## Main layout
+    
+    scroll_area = QScrollArea(window) #scroll area
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
     
     ## Function to fetch printer from database and fill in all data
     def fetch_printer_to_modify():
@@ -77,7 +85,7 @@ def printer_widgets(self, window, modify_printer_flag=False):
                                     entry.setText(str(value))
                                 else:
                                     incorrect_info_flag = True
-                            elif key in ["power", "print_size_x", "print_size_y", "print_size_z", "nozzle_size_on", "total_hours", "total_hours_after_last_maintenance"]:
+                            elif key in ["power", "print_size_x", "print_size_y", "print_size_z", "total_hours", "total_hours_after_last_maintenance"]:
                                 try: # check its a number, otherwise remove
                                     entry.setText(str(float(value)))
                                 except ValueError:
@@ -164,7 +172,7 @@ def printer_widgets(self, window, modify_printer_flag=False):
     # add_expense_button.setIconSize(QSize(20, 20))  # Adjust icon size
     add_expense_button.clicked.connect(self.open_add_expense_window)
     
-    OCnumber_help_text = "The OCnumber of the latest expense for this filament must be filled in, if any. \nThe SupplierID is automatically filled from the value in the expenses database. If you want to manually select a SupplierID, the OCnumber will be disconnected automatically."
+    OCnumber_help_text = "The OCnumber of the expense for this printer must be filled in, if any. \nThe SupplierID is automatically filled from the value in the expenses database. If you want to manually select a SupplierID, the OCnumber will be disconnected automatically."
     
     supplier_label = QLabel("Supplier ID (*)")
     self.supplier_id_search = QLineEdit()
@@ -211,7 +219,7 @@ def printer_widgets(self, window, modify_printer_flag=False):
         ("Print Size X", "entry", "mm"),
         ("Print Size Y", "entry", "mm"),
         ("Print Size Z", "entry", "mm"),
-        ("Nozzle Size On", "entry", "mm"),
+        ("Nozzle Size On", "combobox", ["0.25 mm", "0.4 mm", "0.6 mm", "0.8 mm"]),
         ("Status", "combobox", ["Busy", "Planned print", "Free", "NA"]),
         ("Condition", "combobox", ["Working", "Not working", "Under maintenance", "To sell", "Sold"])  ]
 
@@ -268,7 +276,7 @@ def printer_widgets(self, window, modify_printer_flag=False):
             tech_layout.addWidget(QLabel(""), row, 2)
         
         if label_text == "Date Last Maintenance":
-            maintenance_date = "Insert here the last time full maintenance of the printer was made. Use the notes field if you want to add any remarks on the matter.\nIf the maintenance date is 2000-01-01 it means no last maintenance date was recorded in the database."
+            maintenance_date = "In this section specify, if known, the cumulative operational hours of the printer, the operational hours after last maintenance and the date of the last time full maintenance of the printer was made. Use the notes field if you want to add any remarks on the matter.\nIf the maintenance date is 2000-01-01 it means no last maintenance date was recorded in the database."
             self.create_label_with_help(maintenance_date, maintenance_layout, row, 3)
 
     maintenance_group.setLayout(maintenance_layout)
@@ -333,7 +341,10 @@ def printer_widgets(self, window, modify_printer_flag=False):
         layout.addWidget(save_button)
         
     self.printer_entries = printer_entries
-    window.setLayout(layout)
+    
+    #set layout
+    scroll_area.setWidget(scroll_content)
+    dialog_layout.addWidget(scroll_area)
 
     window.closeEvent = lambda event: self.close_event(event, window)  
     window.show()
@@ -342,8 +353,9 @@ def printer_widgets(self, window, modify_printer_flag=False):
 #%% ADDING NEW printer
 def open_add_printer_window(self):
     # Create a new window for adding a new printer
-    self.add_printer_window = QDialog(self)
+    self.add_printer_window = QDialog(None)
     self.add_printer_window.setWindowTitle("Add New Printer")
+    self.add_printer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_printer_window.resize(500, 600)
         
     # Get the customer entry fields 
@@ -381,7 +393,7 @@ def save_printer(self, modify_printer_flag = False):
                 return
             
         # Validate mandatory numeric fields 
-        numeric_fields = ["power", "print_size_x", "print_size_y", "print_size_z", "nozzle_size_on", "total_hours", "total_hours_after_last_maintenance"]
+        numeric_fields = ["power", "print_size_x", "print_size_y", "print_size_z", "total_hours", "total_hours_after_last_maintenance"]
         for field in numeric_fields:
             if values[field]:
                 try:
@@ -400,7 +412,7 @@ def save_printer(self, modify_printer_flag = False):
            
         data = [values["oc_number"], values["supplierid"], values["printer_name"], values["power"],
                 values["print_size_x"], values["print_size_y"], values["print_size_z"],
-                values.get("nozzle_size_on", ""), values["condition"], values["status"],
+                values["condition"], values["condition"], values["status"],
                 values["total_hours"], values["total_hours_after_last_maintenance"], 
                 values["date_last_maintenance"], values["notes"]] 
        
@@ -455,17 +467,19 @@ def save_printer(self, modify_printer_flag = False):
 #%% MODIFY PRINTER   
 def open_modify_printer_window(self):
     # Ask for ID to modify
-    self.modify_printer_window = QDialog(self)
+    self.modify_printer_window = QDialog(None)
     self.modify_printer_window.setWindowTitle("Modify Printer")
-    # self.modify_printer_window.resize(500, 600)
+    self.modify_printer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.modify_printer_window.resize(500, 600)
     
     # Get the entry fields 
     self.printer_widgets(self.modify_printer_window, modify_printer_flag = True)
 
 #%% REMOVE PRINTER
 def open_remove_printer_window(self):
-    self.remove_printer_window = QDialog(self)
+    self.remove_printer_window = QDialog(None)
     self.remove_printer_window.setWindowTitle("Remove Printer")
+    self.remove_printer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_printer_window.resize(300, 200)
 
     layout = QVBoxLayout()
@@ -611,7 +625,7 @@ def restock_filament(self):
 Currently only {self.filament_entries["quantity_in_stock"].text()} are in stock according to the database.
 
 Details:
-    • Material: {self.filament_entries["material"].text()}
+    • Material: {self.filament_entries["material"].currentText()}
     • Color: {self.filament_entries["color"].text()}
     • Supplier: {supplier_name} (ID {supplier_id})
     • Website: {supplier_website}
@@ -649,7 +663,15 @@ def get_selected_properties(self):
 
 #%% FILAMENT WIDGETS
 def filament_widgets(self, window, modify_filament_flag=False):
-    layout = QVBoxLayout()
+    # make it scrollable in case resizing needed
+    dialog_layout = QVBoxLayout(window)## Main layout
+    
+    scroll_area = QScrollArea(window) #scroll area
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
 
     ## Function to fetch printer from database and fill in all data
     def fetch_filament_to_modify():
@@ -1003,7 +1025,9 @@ def filament_widgets(self, window, modify_filament_flag=False):
         save_button.clicked.connect(self.save_filament)
         layout.addWidget(save_button)
         
-    window.setLayout(layout)
+    #set layout
+    scroll_area.setWidget(scroll_content)
+    dialog_layout.addWidget(scroll_area)
 
     window.closeEvent = lambda event: self.close_event(event, window)  
     window.show()
@@ -1013,9 +1037,10 @@ def filament_widgets(self, window, modify_filament_flag=False):
 #%% ADD NEW FILAMENT
 def open_add_filament_window(self):
     # Create a new window for adding a new filament
-    self.add_filament_window = QDialog(self)
+    self.add_filament_window = QDialog(None)
     self.add_filament_window.setWindowTitle("Add New Filament")
-    # self.add_filament_window.resize(500, 600)
+    self.add_filament_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_filament_window.resize(500, 600)
     
     # Generate a new filamentID - needed for image uploading
     self.cursor.execute("SELECT MAX(FilamentID) FROM filaments;")
@@ -1113,9 +1138,10 @@ def save_filament(self, modify_filament_flag = False):
 #%% MODIFY EXISTING FILAMENT
 def open_modify_filament_window(self):
     # Create a new window for modifying an existing filament
-    self.modify_filament_window = QDialog(self)
+    self.modify_filament_window = QDialog(None)
     self.modify_filament_window.setWindowTitle("Modify Filament")
-    # self.modify_filament_window.resize(500, 600)
+    self.modify_filament_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.modify_filament_window.resize(500, 600)
     
     # Get the entry fields 
     self.filament_widgets(self.modify_filament_window, modify_filament_flag = True)
@@ -1123,8 +1149,9 @@ def open_modify_filament_window(self):
     
 #%% REMOVE FILAMENT 
 def open_remove_filament_window(self):
-    self.remove_filament_window = QDialog(self)
+    self.remove_filament_window = QDialog(None)
     self.remove_filament_window.setWindowTitle("Remove Filament")
+    self.remove_filament_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_filament_window.resize(300, 200)
 
     layout = QVBoxLayout()

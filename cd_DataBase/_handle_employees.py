@@ -8,9 +8,10 @@ Handling employees window: add, modify, remove
 
 import sqlite3
 from PyQt5.QtWidgets import ( QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton, QLabel, 
-    QLineEdit, QTextEdit, QGridLayout, QComboBox, QMessageBox, QDialog  )
+    QLineEdit, QTextEdit, QGridLayout, QComboBox, QMessageBox, QDialog, QScrollArea, QWidget  )
 import os
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
 def open_handle_employees_window(self):
     # Open a new window for employee modifications
@@ -46,7 +47,15 @@ def open_handle_employees_window(self):
 
 #%% EMPLOYEE WIDGET
 def employee_widget(self, window, modify_employee_flag=False):
-    layout = QVBoxLayout()
+    # make it scrollable in case resizing needed
+    dialog_layout = QVBoxLayout(window)## Main layout
+    
+    scroll_area = QScrollArea(window) #scroll area
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
 
     def fetch_employee_to_modify():
         employee_id = self.modify_employee_id_entry.text().strip()
@@ -229,7 +238,9 @@ def employee_widget(self, window, modify_employee_flag=False):
         save_button.clicked.connect(self.save_employee)
         layout.addWidget(save_button)
 
-    window.setLayout(layout)
+    #set layout
+    scroll_area.setWidget(scroll_content)
+    dialog_layout.addWidget(scroll_area)
 
     window.closeEvent = lambda event: self.close_event(event, window)  
     window.show()
@@ -240,9 +251,10 @@ def employee_widget(self, window, modify_employee_flag=False):
 #%% ADD EMPLOYEE
 def open_add_employee_window(self):
     # Create a new window for adding a new employee
-    self.add_window_empl = QDialog(self)
+    self.add_window_empl = QDialog(None)
     self.add_window_empl.setWindowTitle("Add New Employee")
-    # self.add_window_empl.resize(500, 600)
+    self.add_window_empl.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_window_empl.resize(500, 600)
     
     # Define employeeID
     self.cursor.execute("SELECT MAX(EmployeeID) FROM employees;")
@@ -350,9 +362,10 @@ def save_employee(self, modify_employee_flag = False):
 #%% MODIFY WINDOW
 def open_modify_employee_window(self):
     # Ask for employee ID to modify
-    self.modify_window_empl = QDialog(self)
+    self.modify_window_empl = QDialog(None)
     self.modify_window_empl.setWindowTitle("Modify Employee")
-    # self.modify_window_empl.resize(500, 600)
+    self.modify_window_empl.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.modify_window_empl.resize(500, 600)
     
     # Get the entry fields 
     self.employee_widget(self.modify_window_empl, modify_employee_flag = True)
@@ -360,8 +373,9 @@ def open_modify_employee_window(self):
 
 #%% REMOVE EMPLOYEE WINDOW
 def open_remove_employee_window(self):
-    self.remove_window_empl = QDialog(self)
+    self.remove_window_empl = QDialog(None)
     self.remove_window_empl.setWindowTitle("Remove Employee")
+    self.remove_window_empl.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_window_empl.resize(300, 200)
 
     layout = QVBoxLayout()

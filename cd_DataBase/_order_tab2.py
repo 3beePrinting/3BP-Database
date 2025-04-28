@@ -9,7 +9,7 @@ Code for order tab2
 
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QComboBox, 
-    QFileDialog, QMessageBox, QGridLayout,
+    QFileDialog, QMessageBox, QGridLayout, QScrollArea,
     QWidget,  QDialog, QSpacerItem,
     QFrame, QAction, QSizePolicy, QSpinBox, QLayout, QGroupBox )
 from PyQt5.QtCore import Qt
@@ -156,41 +156,50 @@ def open_printer_selection(self):
         
         printer_block.addWidget(checkbox)
 
-        # Status dropdown
-        status_box = QComboBox()
-        status_box.addItems(["Busy", "Planned print", "Free"])
-        if status in ["Busy", "Planned print", "Free"]:
-            status_box.setCurrentText(status)
-        printer_block.addWidget(status_box)
-
-        # Add to layout
-        layout.addLayout(printer_block)
-        checkbox_widgets.append((pid, checkbox, status_box))
+        if self.order_entries_tab1["stage"].currentText() == "Order":
+            # Status dropdown
+            status_box = QComboBox()
+            status_box.addItems(["Busy", "Planned print", "Free"])
+            if status in ["Busy", "Planned print", "Free"]:
+                status_box.setCurrentText(status)
+            printer_block.addWidget(status_box)
+    
+            # Add to layout
+            layout.addLayout(printer_block)
+            checkbox_widgets.append((pid, checkbox, status_box))
+        else:
+            # Add to layout
+            layout.addLayout(printer_block)
+            checkbox_widgets.append((pid, checkbox))
 
     # OK button
     def confirm_selection():
         selected_ids = []
         updates_to_apply = []
     
-        for pid, checkbox, status_box in checkbox_widgets:
-            if checkbox.isChecked():
-                selected_ids.append(str(pid))
-                updates_to_apply.append((status_box.currentText(), pid))
-    
-        # Ask if user wants to update status
-        if updates_to_apply:
-            reply = QMessageBox.question(
-                self,
-                "Update Printer Status?",
-                "Do you want to update the printer statuses in the database as well? The original statuses will be lost after confirmation.",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-    
-            if reply == QMessageBox.Yes:
-                for new_status, pid in updates_to_apply:
-                    self.cursor.execute("UPDATE printers SET Status = ? WHERE PrinterID = ?", (new_status, pid))
-                self.connection.commit()
+        if self.order_entries_tab1["stage"].currentText() == "Order":
+            for pid, checkbox, status_box in checkbox_widgets:
+                if checkbox.isChecked():
+                    selected_ids.append(str(pid))
+                    updates_to_apply.append((status_box.currentText(), pid))
+            
+            # Ask if user wants to update status
+            if updates_to_apply:
+                reply = QMessageBox.question(
+                    self,
+                    "Update Printer Status?",
+                    "Do you want to update the printer statuses in the database as well? The original statuses will be lost after confirmation.",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No   )
+        
+                if reply == QMessageBox.Yes:
+                    for new_status, pid in updates_to_apply:
+                        self.cursor.execute("UPDATE printers SET Status = ? WHERE PrinterID = ?", (new_status, pid))
+                    self.connection.commit()
+        else:
+            for pid, checkbox in checkbox_widgets:
+                if checkbox.isChecked():
+                    selected_ids.append(str(pid))
     
         # Update display regardless
         self.order_entries_tab2["printerids"].setText(", ".join(selected_ids))
@@ -235,18 +244,21 @@ def open_filament_selection(self):
         info_layout = QHBoxLayout()
         info_layout.addWidget(QLabel(f"In stock: {qtystock} rolls ({grams}g/roll)"))
         
-        # If Printing, you can remove rolls of materials from stock
-        # Input: how many rolls to use
-        rolls_input = QSpinBox()
-        rolls_input.setRange(0, 100)
-        rolls_input.setValue(0)
-        info_layout.addWidget(QLabel("Expected use:"))
-        info_layout.addWidget(rolls_input)
-
-        filament_layout.addLayout(info_layout)
-        layout.addLayout(filament_layout)
-
-        checkbox_widgets.append((fid, checkbox, rolls_input))
+        if self.order_entries_tab1["stage"].currentText() == "Order":
+            # If Printing, you can remove rolls of materials from stock
+            # Input: how many rolls to use
+            rolls_input = QSpinBox()
+            rolls_input.setRange(0, 100)
+            rolls_input.setValue(0)
+            info_layout.addWidget(QLabel("Expected use:"))
+            info_layout.addWidget(rolls_input)
+    
+            filament_layout.addLayout(info_layout)
+            layout.addLayout(filament_layout)
+            checkbox_widgets.append((fid, checkbox, rolls_input))
+        else:
+            layout.addLayout(filament_layout)
+            checkbox_widgets.append((fid, checkbox))
 
     # OK button logic
     def confirm_selection():
@@ -254,41 +266,46 @@ def open_filament_selection(self):
         selected_quantities = {}  # {fid: rolls_used}
         updates_to_apply = []     # [(fid, rolls_used, original_qty)]
     
-        for fid, checkbox, spinbox in checkbox_widgets:
-            if checkbox.isChecked():
-                selected_ids.append(str(fid))
-                rolls_used = spinbox.value()
-                selected_quantities[fid] = rolls_used
-    
-                # Fetch current stock for this filament
-                self.cursor.execute("SELECT QuantityInStock FROM filaments WHERE FilamentID = ?", (fid,))
-                result = self.cursor.fetchone()
-                if result:
-                    current_stock = result[0]
-                    updates_to_apply.append((fid, rolls_used, current_stock))
+        if self.order_entries_tab1["stage"].currentText() == "Order":
+            for fid, checkbox, spinbox in checkbox_widgets:
+                if checkbox.isChecked():
+                    selected_ids.append(str(fid))
+                    rolls_used = spinbox.value()
+                    selected_quantities[fid] = rolls_used
+        
+                    # Fetch current stock for this filament
+                    self.cursor.execute("SELECT QuantityInStock FROM filaments WHERE FilamentID = ?", (fid,))
+                    result = self.cursor.fetchone()
+                    if result:
+                        current_stock = result[0]
+                        updates_to_apply.append((fid, rolls_used, current_stock))
+        else:
+            for fid, checkbox in checkbox_widgets:
+                if checkbox.isChecked():
+                    selected_ids.append(str(fid))
     
         # Set the selected IDs to the display
         self.order_entries_tab2["filamentids"].setText(", ".join(selected_ids))
-        self.selected_filament_rolls = selected_quantities
-    
-        # Ask if user wants to update stock
-        if updates_to_apply:
-            reply = QMessageBox.question(
-                self,
-                "Update Stock?",
-                "Do you want to update the filament stock quantities based on usage?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-    
-            if reply == QMessageBox.Yes:
-                for fid, used, current_stock in updates_to_apply:
-                    new_stock = max(0, current_stock - used)  # Prevent negative stock
-                    self.cursor.execute(
-                        "UPDATE filaments SET QuantityInStock = ? WHERE FilamentID = ?",
-                        (new_stock, fid)
-                    )
-                self.connection.commit()
+        
+        if self.order_entries_tab1["stage"].currentText() == "Order":
+            self.selected_filament_rolls = selected_quantities
+        
+            # Ask if user wants to update stock
+            if updates_to_apply:
+                reply = QMessageBox.question(
+                    self,
+                    "Update Stock?",
+                    "Do you want to update the filament stock quantities based on usage?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No     )
+        
+                if reply == QMessageBox.Yes:
+                    for fid, used, current_stock in updates_to_apply:
+                        new_stock = max(0, current_stock - used)  # Prevent negative stock
+                        self.cursor.execute(
+                            "UPDATE filaments SET QuantityInStock = ? WHERE FilamentID = ?",
+                            (new_stock, fid)            )
+                    self.connection.commit()
     
         dialog.accept()
 
@@ -308,7 +325,7 @@ def tab2_widgets(self, tab2, modify_flag = False):
     # === NEW: Outer fixed-size wrapper frame ===
     wrapper_frame = QFrame()
     wrapper_frame.setFrameShape(QFrame.NoFrame)
-    wrapper_frame.setFixedSize(1200, 700)  # You can adjust size here
+    # wrapper_frame.setFixedSize(1200, 700)  # You can adjust size here
     
     # Inner layout inside the fixed-size box
     tab2_layout = QGridLayout()

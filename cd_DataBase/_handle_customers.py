@@ -7,8 +7,9 @@ Created on Sun Dec 22 13:19:37 2024
 
 import sqlite3
 from PyQt5.QtWidgets import ( QVBoxLayout, QHBoxLayout, QGroupBox, QPushButton, QLabel, 
-    QLineEdit, QTextEdit, QGridLayout, QComboBox, QMessageBox, QDialog  )
+    QLineEdit, QTextEdit, QGridLayout, QComboBox, QMessageBox, QDialog, QScrollArea, QWidget  )
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 
 def open_handle_customers_window(self):
     # Open a new window for customer modifications
@@ -43,7 +44,15 @@ def open_handle_customers_window(self):
 
 #%% WIDGET
 def customer_widget(self, window, modify_customer_flag = False):
-    layout = QVBoxLayout()
+    # make it scrollable in case resizing needed
+    dialog_layout = QVBoxLayout(window)## Main layout
+    
+    scroll_area = QScrollArea(window) #scroll area
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
 
     ## Function to fetch customer from database and fill in all data
     def fetch_customer_to_modify():
@@ -202,7 +211,10 @@ def customer_widget(self, window, modify_customer_flag = False):
         layout.addWidget(save_button)
 
     self.entries_customer = entries_customer
-    window.setLayout(layout)
+    
+    #set layout
+    scroll_area.setWidget(scroll_content)
+    dialog_layout.addWidget(scroll_area)
 
     window.closeEvent = lambda event: self.close_event(event, window)
     window.show()
@@ -211,9 +223,10 @@ def customer_widget(self, window, modify_customer_flag = False):
 #%% ADD CUSTOMER
 def open_add_customer_window(self):
     # Create a new window for adding a new customer
-    self.add_customer_window = QDialog(self)
+    self.add_customer_window = QDialog(None)
     self.add_customer_window.setWindowTitle("Add New Customer")
-    # self.add_customer_window.resize(500, 600)
+    self.add_customer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.add_customer_window.resize(500, 600)
         
     # Get the customer entry fields 
     self.customer_widget(self.add_customer_window)
@@ -223,9 +236,10 @@ def open_add_customer_window(self):
 #%% MODIFY CUSTOMER WINDOW    
 def open_modify_customer_window(self):
     # Ask for customer ID to modify
-    self.modify_window_customer = QDialog(self)
+    self.modify_window_customer = QDialog(None)
     self.modify_window_customer.setWindowTitle("Modify Customer")
-    # self.modify_window_customer.resize(500, 600)
+    self.modify_window_customer.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    self.modify_window_customer.resize(500, 600)
     
     # Get the customer entry fields 
     self.customer_widget(self.modify_window_customer, modify_customer_flag = True)
@@ -292,8 +306,9 @@ def save_customer(self, modify_customer_flag = False):
    
 #%% REMOVE CUSTOMER
 def open_remove_customer_window(self):
-    self.remove_window = QDialog(self)
+    self.remove_window = QDialog(None)
     self.remove_window.setWindowTitle("Remove Customer")
+    self.remove_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_window.resize(300, 200)
 
     layout = QVBoxLayout()

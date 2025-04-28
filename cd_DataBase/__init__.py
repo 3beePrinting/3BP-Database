@@ -14,7 +14,7 @@ import sqlite3
 import re
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QGroupBox, QSizePolicy, QMessageBox, QFileDialog)
-from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import Qt
 from functools import partial
 import os
@@ -78,6 +78,8 @@ class DatabaseApp(QMainWindow):
         
         # Organize layout main page
         self.setWindowTitle("3Bee Printing Database")
+        self.setWindowIcon(QIcon(self.resource_path("images/3bp_logo.png")))
+
 
         # Set up a central widget with a horizontal layout
         central_widget = QWidget()
@@ -377,20 +379,22 @@ class DatabaseApp(QMainWindow):
         if order_flag:
             date_str = self.order_entries_tab1["date_ordered"].date().toString("yyyy-MM-dd")
             path = self.upload_order_invoice_path
+            year = date_str[:4]
+            month = int(date_str[5:7])
+            if month in [1, 2, 3]:
+                quarter= "Q1"
+            elif month in [4, 5, 6]:
+                quarter= "Q2"
+            elif month in [7, 8, 9]:
+                quarter= "Q3"
+            else:
+                quarter= "Q4"
         else:
-            date_str = self.expense_entries["date_ordered"].date().toString("yyyy-MM-dd")
+            date_str = self.expense_entries["tax_return_applicable"]
             path= self.upload_expense_invoice_path
-        year = date_str[:4]
-        month = int(date_str[5:7])
-        if month in [1, 2, 3]:
-            quarter= "Q1"
-        elif month in [4, 5, 6]:
-            quarter= "Q2"
-        elif month in [7, 8, 9]:
-            quarter= "Q3"
-        else:
-            quarter= "Q4"
-            
+            quarter = date_str[0].currentText()
+            year = date_str[1].currentText()
+        
         folder_path = os.path.join(path, str(year), str(quarter))
         os.makedirs(folder_path, exist_ok=True)
         
