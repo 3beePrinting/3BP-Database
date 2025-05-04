@@ -1,0 +1,7 @@
+# Ignore build and dist outputs
+/dist/
+/build/
+
+# Ignore executables and packages
+*.exe
+*.pkg
