@@ -16,6 +16,7 @@ import os
 import win32com.client as win32
 import shutil
 import subprocess
+from .invoice_pyqt import InvoiceWindow
 
 #%% TAB 1 - Order details widgets        
 def tab1_widgets(self, frame, modify_flag = False):
@@ -146,6 +147,11 @@ def tab1_widgets(self, frame, modify_flag = False):
     layout.addWidget(self.status_combobox, row_nr, 1)
     update_status_options()
     order_entries_tab1["status"] = self.status_combobox
+    
+    # — Invoice button on the same row, next column —
+    self.invoice_button = QPushButton("Invoice…")
+    layout.addWidget(self.invoice_button, row_nr, 2)
+    self.invoice_button.clicked.connect(self._open_invoice_window)
     
     # --- Invoice ---
     row_nr+=1
@@ -586,4 +592,70 @@ def fun_folder_upload(self):
             print(f"Folder opened: {folder_path}")
         except Exception as e:
             print(f"Error opening folder: {e}")
-        
+
+def _open_invoice_window(self):
+        """
+        Open the InvoiceWindow pre-loaded with the customer from the current order.
+        """
+        # 1) Find the customer field widget and extract its value
+        cust_widget = self.order_entries_tab1.get("customer")
+        cust_id = None
+        if cust_widget:
+            # QLineEdit vs QComboBox
+            if hasattr(cust_widget, "text"):
+                cust_id = cust_widget.text()
+            elif hasattr(cust_widget, "currentText"):
+                cust_id = cust_widget.currentText()
+
+        # 2) Look up that customer's details from the DB
+        cust_info = None
+        if cust_id:
+            try:
+                query = """
+                    SELECT FirstName, LastName, Email, BillingAddress, ShippingAddress
+                      FROM customers
+                     WHERE CustomerID = ?
+                """
+                self.cursor.execute(query, (cust_id,))
+                row = self.cursor.fetchone()
+                if row:
+                    cust_info = {
+                        "name":             f"{row[0]} {row[1]}",
+                        "email":            row[2],
+                        "billing_address":  row[3],
+                        "shipping_address": row[4],
+                    }
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Customer lookup failed",
+                    f"Could not load customer data:\n{e}"
+                )
+
+        # 3) Build the dict to pass into InvoiceWindow
+        if cust_info:
+            customers_dict = {
+                cust_info["name"]: {
+                    "email":            cust_info["email"],
+                    "billing_address":  cust_info["billing_address"],
+                    "shipping_address": cust_info["shipping_address"],
+                }
+            }
+        else:
+            customers_dict = None  # will fall back to defaults in the invoice form
+
+        # 4) Instantiate and show the invoice UI
+        #    Pass customers_dict into the constructor so the dropdown is pre-populated
+        self._invoice_win = InvoiceWindow(customers=customers_dict)
+
+        # (Optional) Prefill invoice number from order ID if you have it:
+        oid_widget = self.order_entries_tab1.get("order_id")
+        if oid_widget and hasattr(oid_widget, "text"):
+            try:
+                self._invoice_win.invoice_number.setText(oid_widget.text())
+            except Exception:
+                pass
+
+        self._invoice_win.show()
+
+

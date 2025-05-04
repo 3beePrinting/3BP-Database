@@ -1,0 +1,63 @@
+# Git Workflow Manual
+
+1. Navigate to Your Local Clone
+   ```
+   cd /path/to/your/repo
+   ```
+   *Description:* Changes your current directory to the root of your project where the Git repository is located.
+
+2. Sync with the Remote Repository
+   ```
+   git checkout main
+   git pull origin main
+   ```
+   *Description:* Switches to the main branch and fetches the latest commits from the remote 'origin', merging them into your local branch to ensure you're up to date.
+
+3. Create & Switch to a New Branch
+   ```
+   git checkout -b feature/my-new-feature
+   ```
+   *Description:* Creates a new branch named 'feature/my-new-feature' and switches your working directory to this branch in one step.
+
+4. Work on Your Code
+   *Description:* Edit, add, or remove files in your editor/IDE. These changes remain untracked until you stage them.
+
+5. Stage Changes for Commit
+   ```
+   git add file1.py dir/file2.js
+   ```
+   *Description:* Marks specific changed files to be included in the next commit.
+
+6. Commit Your Changes
+   ```
+   git commit -m "Short, clear summary of changes"
+   ```
+   *Description:* Records a snapshot of your staged changes in the branch's history with a descriptive message.
+
+7. Update Your Branch with Latest Main (Optional)
+   ```
+   git fetch origin
+   git rebase origin/main
+   ```
+   *Description:* Downloads new commits from 'main' and rebases your feature branch on top to keep history linear and reduce merge conflicts.
+
+8. Push Your Branch to the Remote
+   ```
+   git push -u origin feature/my-new-feature
+   ```
+   *Description:* Uploads your local branch to the remote 'origin' and sets it as the upstream branch for easy future pushes and pulls.
+
+9. Open a Pull Request (PR)
+   *Description:* On your Git hosting platform (GitHub/GitLab/Bitbucket), create a PR to request merging your feature branch into 'main', facilitating code review and discussion.
+
+10. Address Review Feedback & Iterate
+    *Description:* Make additional commits on the same branch to address reviewer comments, then push the updates. The PR will update automatically.
+
+11. Merge & Clean Up
+    ```
+    git checkout main
+    git pull origin main
+    git branch -d feature/my-new-feature
+    git push origin --delete feature/my-new-feature
+    ```
+    *Description:* Switch back to 'main', get the merged code, delete the local feature branch, and remove the remote branch to keep the repository tidy.

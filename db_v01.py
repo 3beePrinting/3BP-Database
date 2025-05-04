@@ -13,62 +13,39 @@ from cd_DataBase import DatabaseApp
 from db_initialize import initialize_db
 import json
 import os
+from settings_dialog import SettingsDialog, load_settings
+from PyQt5.QtWidgets import QApplication, QDialog
 
 SETTINGS_FILE = "settings.json" #input settings file
 
-def load_settings():
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r") as f:
-            settings = json.load(f)
-        return settings
-    else:
-        return None
 
-def save_settings(settings):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f)
 
-def ask_initial_questions():
-    settings = {}
-    
-    one_drive_local_path, ok = QInputDialog.getText(None, "Initialization", "Enter the path to your local 3BP OneDrive (example C:\\Users\\feder\\3BeePrinting(2aim2)\\3Bee Printing - 01 3BEE_PRINTING):")
-    if not ok:
-        sys.exit()
 
-    design_hourly_rate, ok = QInputDialog.getInt(None, "Initialization", "Enter the hourly rate for 3D designing (€):")
-    if not ok:
-        sys.exit()
-        
-    labour_hourly_rate, ok = QInputDialog.getInt(None, "Initialization", "Enter the hourly rate for labour (€):")
-    if not ok:
-        sys.exit()
-
-    settings["one_drive_local_path"] = one_drive_local_path
-    settings["design_hourly_rate"] = design_hourly_rate
-    settings["labour_hourly_rate"] = labour_hourly_rate
-
-    save_settings(settings)
-    return settings
-
-if __name__ == "__main__":    
-    
+def main():
     app = QApplication(sys.argv)
-    
-    # Load inputs
+
+    # 1) Load or prompt for database file
     settings = load_settings()
-    if not settings:
-        settings = ask_initial_questions()
-        
-    # Initialize database file name and structure
-    dbfile_name = os.path.join(settings["one_drive_local_path"], "09 Development", "04 Python Database 2025", "3beeprinting.db")
-    # dbfile_name = os.path.join(settings["one_drive_local_path"], "3beeprinting2.db")
-    # dbfile_name = "3beeprinting2.db"
-    initialize_db(dbfile_name)
-    
-    # Create main window instance (DatabaseApp is a QMainWindow subclass)
-    main_window = DatabaseApp(dbfile_name, settings)
-    
-    # Show the window maximized
-    main_window.showMaximized()
-    
+    if not settings.get("database_path"):
+        dlg = SettingsDialog()
+        if dlg.exec_() == QDialog.Accepted:
+            settings = load_settings()
+        else:
+            sys.exit()
+
+    # 2) Use exactly that .db path
+    dbfile = settings["database_path"]
+
+    # 3) Make sure the file’s parent folder exists (and create if needed)
+    dbdir = os.path.dirname(dbfile)
+    os.makedirs(dbdir, exist_ok=True)
+
+    # 4) Initialize and launch
+    initialize_db(dbfile)
+    win = DatabaseApp(dbfile, settings)
+    win.showMaximized()
+
     sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()

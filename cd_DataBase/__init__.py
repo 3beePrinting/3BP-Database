@@ -14,6 +14,9 @@ import sqlite3
 import re
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QGroupBox, QSizePolicy, QMessageBox, QFileDialog)
+from PyQt5.QtWidgets import QAction, QDialog, QMessageBox,QApplication
+from settings_dialog import SettingsDialog, load_settings, save_settings
+
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import Qt
 from functools import partial
@@ -21,6 +24,14 @@ import os
 import subprocess
 import shutil
 import sys
+
+import json
+
+
+from PyQt5.QtCore   import QTimer
+
+
+
 
 class DatabaseApp(QMainWindow):
     #%% Import methods from sub-modules (assumed adapted for PyQt5)
@@ -34,7 +45,7 @@ class DatabaseApp(QMainWindow):
 
     from ._handle_orders import open_add_order_window, open_handle_order_window, open_modify_order_window, open_remove_order_window, save_order, get_selected_services, orders_setup_tabs, fetch_order_to_modify
     # Import tab widgets from separate files
-    from ._order_tab1 import tab1_widgets, validate_fields_tab1, fun_task_assignment, fun_folder_upload, create_parts_table_tab1
+    from ._order_tab1 import tab1_widgets, validate_fields_tab1, fun_task_assignment, fun_folder_upload, create_parts_table_tab1, _open_invoice_window
     from ._order_tab2 import tab2_widgets, open_printer_selection, open_filament_selection, price_estimation, update_BTW_and_profit, validate_fields_tab2
     from ._order_tab3 import tab3_widgets, fun_ask_price_consultation_email, fun_client_email
     from ._import_export_exceldata import fun_import_database, fun_export_database
@@ -43,6 +54,8 @@ class DatabaseApp(QMainWindow):
     def __init__(self, database_path, settings):        
         #%% Initialize database connection
         super(DatabaseApp, self).__init__()
+        self.settings = load_settings()
+        self._create_menus()
         self.database_path = database_path
         self.connection = sqlite3.connect(self.database_path)
         self.cursor = self.connection.cursor()
@@ -50,8 +63,10 @@ class DatabaseApp(QMainWindow):
         #%% --- INPUTS ---
         # Define global data used all over database
         
-        self.one_drive_local_path = settings['one_drive_local_path'] #r"C:\Users\feder\3BeePrinting(2aim2)\3Bee Printing - 01 3BEE_PRINTING"
-
+        one_drive_root = os.path.abspath(
+            os.path.join(self.database_path, os.pardir, os.pardir, os.pardir)
+            )
+        self.one_drive_local_path = one_drive_root
         # Cost estimation inputs
         self.BTW = 0.21  # 21%
         self.postNLprices = [4.25, 5.95, 6.95, 14.50]
@@ -200,6 +215,107 @@ class DatabaseApp(QMainWindow):
         self.show_table("printsettings")
     
 #%% APP or COMMON FUNCTIONS are defined here
+    def _create_menus(self):
+        menubar = self.menuBar()
+
+        # File menu (existing/empty)
+        menubar.addMenu("&File")
+
+        # Settings menu (you already added this)
+        settings_menu = menubar.addMenu("&Settings")
+        act = QAction("Settings…", self)
+        act.triggered.connect(self._open_settings)
+        settings_menu.addAction(act)
+
+        # View menu — add our new “Check for updates…”
+        view_menu = menubar.addMenu("&View")
+        upd = QAction("Check for updates…", self)
+        upd.triggered.connect(self._check_for_updates)
+        view_menu.addAction(upd)
+
+        # Help menu (empty)
+        menubar.addMenu("&Help")
+    def _check_for_updates(self):
+        """
+        Look in a “dist” subfolder next to the database file for version.json,
+        compare versions, prompt the user, copy the new .exe over the running one,
+        and restart.
+        """
+        # 1) Determine the folder containing your .db and locate dist/
+        db_dir   = os.path.dirname(self.database_path)
+        dist_dir = os.path.join(db_dir, "dist")
+        ver_file = os.path.join(dist_dir, "version.json")
+
+        # 2) Read version.json
+        try:
+            with open(ver_file, "r") as f:
+                info    = json.load(f)
+                new_ver = info["version"]
+                new_exe = info["exe"]
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Update check failed",
+                f"Could not read update info:\n{ver_file}\n{e}"
+            )
+            return
+
+        # 3) Compare to current version stored in settings (default 0.0.0)
+        current_ver = self.settings.get("version", "0.0.0")
+        if new_ver <= current_ver:
+            QMessageBox.information(
+                self,
+                "No update available",
+                "You already have the latest version."
+            )
+            return
+
+        # 4) Ask the user if they want to install
+        if QMessageBox.question(
+                self,
+                "Update available",
+                f"A new version ({new_ver}) is available.\nInstall and restart now?",
+                QMessageBox.Yes | QMessageBox.No
+            ) != QMessageBox.Yes:
+            return
+
+        # 5) Copy the new executable over the running one
+        src = os.path.join(dist_dir, new_exe)
+        tgt = sys.executable
+        try:
+            shutil.copy2(src, tgt)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Update failed",
+                f"Could not replace executable:\n{e}"
+            )
+            return
+
+        # 6) Record the new version and restart
+        self.settings["version"] = new_ver
+        save_settings(self.settings)
+
+        QMessageBox.information(
+            self,
+            "Update installed",
+            "Update complete. The application will now restart."
+        )
+        QTimer.singleShot(100, self._restart)
+
+    def _restart(self):
+        """Quit and re-launch the current executable."""
+        QApplication.quit()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
+
+    def _open_settings(self):
+        dlg = SettingsDialog(self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.settings = load_settings()
+            # TODO: propagate any changed settings into your UI
+
     def closeEvent(self, event):
         reply = QMessageBox.question(
             self,
