@@ -1,6 +1,6 @@
 # settings_dialog.py
 
-import os, json
+import os, json, sys
 from PyQt5.QtWidgets import (
     QDialog, QTabWidget, QWidget, QFormLayout,
     QLineEdit, QSpinBox, QDialogButtonBox,
@@ -8,7 +8,21 @@ from PyQt5.QtWidgets import (
     QFileDialog, QMessageBox
 )
 
-SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
+from PyQt5.QtCore import QStandardPaths
+
+# Determine a real folder for your app’s data
+if getattr(sys, 'frozen', False):
+    # running in exe
+    appdata = QStandardPaths.writableLocation(
+        QStandardPaths.AppDataLocation
+    )
+    # On Windows this is: C:/Users/<You>/AppData/Roaming/YourAppName
+else:
+    # running in script
+    appdata = os.path.dirname(__file__)
+
+os.makedirs(appdata, exist_ok=True)
+SETTINGS_FILE = os.path.join(appdata, "settings.json")
 
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
