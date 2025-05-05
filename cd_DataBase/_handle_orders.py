@@ -25,15 +25,27 @@ def open_handle_order_window(self):
 
     # See button
     see_requests_button = QPushButton("See All Requests")
-    see_requests_button.clicked.connect(lambda: self.show_table("orders"))
+    def _show_and_wire_orders():
+        # 1) populate the table
+        self.show_table("orders")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_order_doubleclick)
+
+    see_requests_button.clicked.connect(_show_and_wire_orders)
     layout.addWidget(see_requests_button)
 
     see_open_requests_button = QPushButton("See Open Requests")
-    see_open_requests_button.clicked.connect(lambda: self.show_table("orders", open_req = True))
+    see_open_requests_button.clicked.connect(_show_and_wire_orders)
     layout.addWidget(see_open_requests_button)
     
     see_active_orders_button = QPushButton("See Active Orders")
-    see_active_orders_button.clicked.connect(lambda: self.show_table("orders", active_ord = True))
+    # see_active_orders_button.clicked.connect(lambda: self.show_table("orders", active_ord = True))
+    see_active_orders_button.clicked.connect(_show_and_wire_orders)
     layout.addWidget(see_active_orders_button)
     
     # See parts button
@@ -58,7 +70,58 @@ def open_handle_order_window(self):
     self.handle_window_order.setLayout(layout)
     self.handle_window_order.show()
     
+def _on_order_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    ord_id = self.table.item(row, 0).text()
+    if not ord_id:
+        return
 
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_order_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_order_id_entry.setText(ord_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_order_to_modify()
+    
+def fetch_order_to_modify(self):
+    self.orderid = self.modify_order_id_entry.text().strip()
+    
+    if not self.orderid:
+        QMessageBox.warning(self, "Input Error", "Please enter an Order ID.")
+        return
+
+    try:
+        self.cursor.execute("SELECT * FROM orders WHERE OrderID = ?", (self.orderid,))
+        order = self.cursor.fetchone()
+        
+        if not order:
+            QMessageBox.warning(self, "Order Not Found", "No order found with the given ID.")
+            return
+
+        # Get column names to map keys to order values
+        column_names = [
+            re.sub(r'(?<!^)(?=[A-Z])', '_', desc[0])
+            .replace(" ", "_")
+            .lower()
+            if all(x not in desc[0] for x in ["ID", "BTW"])
+            else desc[0].replace(" ", "_").lower()
+            for desc in self.cursor.description ]
+
+        order_data = dict(zip(column_names, order))
+        self.order_data = order_data
+        
+        # Create a new window with the data filled in
+        self.pick_order_to_modify_window.close()
+        self.modify_window_order = QDialog(None)
+        self.modify_window_order.setWindowTitle(f"Modify OrderID {self.orderid}")
+        self.modify_window_order.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        self.modify_window_order.resize(1800, 800)  # Width, Height
+        
+        self.orders_setup_tabs(self.modify_window_order, modify_flag = True)
+
+    except sqlite3.Error as e:
+        QMessageBox.critical(self, "Error", f"Failed to fetch order data:\n{e}")
 
 #%% SET UP ORDER WIDGET
 def orders_setup_tabs(self, window, modify_flag = False):  
@@ -142,44 +205,7 @@ def open_modify_order_window(self):
     
     self.pick_order_to_modify_window.show()
 
-def fetch_order_to_modify(self):
-    self.orderid = self.modify_order_id_entry.text().strip()
-    
-    if not self.orderid:
-        QMessageBox.warning(self, "Input Error", "Please enter an Order ID.")
-        return
 
-    try:
-        self.cursor.execute("SELECT * FROM orders WHERE OrderID = ?", (self.orderid,))
-        order = self.cursor.fetchone()
-        
-        if not order:
-            QMessageBox.warning(self, "Order Not Found", "No order found with the given ID.")
-            return
-
-        # Get column names to map keys to order values
-        column_names = [
-            re.sub(r'(?<!^)(?=[A-Z])', '_', desc[0])
-            .replace(" ", "_")
-            .lower()
-            if all(x not in desc[0] for x in ["ID", "BTW"])
-            else desc[0].replace(" ", "_").lower()
-            for desc in self.cursor.description ]
-
-        order_data = dict(zip(column_names, order))
-        self.order_data = order_data
-        
-        # Create a new window with the data filled in
-        self.pick_order_to_modify_window.close()
-        self.modify_window_order = QDialog(None)
-        self.modify_window_order.setWindowTitle(f"Modify OrderID {self.orderid}")
-        self.modify_window_order.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
-        self.modify_window_order.resize(1800, 800)  # Width, Height
-        
-        self.orders_setup_tabs(self.modify_window_order, modify_flag = True)
-
-    except sqlite3.Error as e:
-        QMessageBox.critical(self, "Error", f"Failed to fetch order data:\n{e}")
 
 #%% Function to get the selected services as a comma-separated string
 def get_selected_services(self):

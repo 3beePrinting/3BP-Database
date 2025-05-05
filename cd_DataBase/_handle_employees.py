@@ -23,7 +23,18 @@ def open_handle_employees_window(self):
 
     # See employees button
     see_employee_button = QPushButton("See Employees")
-    see_employee_button.clicked.connect(lambda: self.show_table("employees"))
+    def _show_and_wire_employees():
+        # 1) populate the table
+        self.show_table("employees")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_employee_doubleclick)
+
+    see_employee_button.clicked.connect(_show_and_wire_employees)
     layout.addWidget(see_employee_button)
 
     # Add New employee button
@@ -44,7 +55,49 @@ def open_handle_employees_window(self):
     self.handle_window_empl.setLayout(layout)
     self.handle_window_empl.show()
 
+def _on_employee_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    empl_id = self.table.item(row, 0).text()
+    if not empl_id:
+        return
 
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_employee_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_employee_id_entry.setText(empl_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_employee_to_modify()
+    
+def fetch_employee_to_modify(self):
+    employee_id = self.modify_employee_id_entry.text().strip()
+    self.employee_id = employee_id
+    if employee_id:
+        try:
+            self.cursor.execute("SELECT * FROM employees WHERE EmployeeID = ?", (employee_id,))
+            employee = self.cursor.fetchone()
+            if employee:
+                for (key, entry), value in zip(self.employee_entries.items(), employee[1:]):
+                    if isinstance(entry, QLineEdit):
+                        entry.setText(str(value) if value is not None else "")
+                    elif isinstance(entry, QTextEdit):
+                        entry.setPlainText(str(value) if value is not None else "")
+                    elif isinstance(entry, QComboBox):
+                        if value in [entry.itemText(j) for j in range(entry.count())]:
+                            entry.setCurrentText(value)
+    
+                # Update image label instead of replacing it
+                if employee[-1]:  # Assuming the last column is 'Picture'
+                    self.image_label.setText("Image exists in database. If you attach a new picture, the old one will be lost.")
+                    self.image_label.setStyleSheet("font-style: italic; color: gray;")
+                else:
+                    self.image_label.setText("No image on database for this ID.")
+                    self.image_label.setStyleSheet("font-style: italic; color: gray;")
+            else:
+                QMessageBox.warning(self, "Employee Not Found", "No employee found with the given ID.")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Error", f"Failed to fetch employee data: {e}")
+    
 #%% EMPLOYEE WIDGET
 def employee_widget(self, window, modify_employee_flag=False):
     # make it scrollable in case resizing needed
@@ -57,34 +110,6 @@ def employee_widget(self, window, modify_employee_flag=False):
     scroll_content = QWidget()
     layout = QVBoxLayout(scroll_content)
 
-    def fetch_employee_to_modify():
-        employee_id = self.modify_employee_id_entry.text().strip()
-        self.employee_id = employee_id
-        if employee_id:
-            try:
-                self.cursor.execute("SELECT * FROM employees WHERE EmployeeID = ?", (employee_id,))
-                employee = self.cursor.fetchone()
-                if employee:
-                    for (key, entry), value in zip(self.employee_entries.items(), employee[1:]):
-                        if isinstance(entry, QLineEdit):
-                            entry.setText(str(value) if value is not None else "")
-                        elif isinstance(entry, QTextEdit):
-                            entry.setPlainText(str(value) if value is not None else "")
-                        elif isinstance(entry, QComboBox):
-                            if value in [entry.itemText(j) for j in range(entry.count())]:
-                                entry.setCurrentText(value)
-        
-                    # Update image label instead of replacing it
-                    if employee[-1]:  # Assuming the last column is 'Picture'
-                        self.image_label.setText("Image exists in database. If you attach a new picture, the old one will be lost.")
-                        self.image_label.setStyleSheet("font-style: italic; color: gray;")
-                    else:
-                        self.image_label.setText("No image on database for this ID.")
-                        self.image_label.setStyleSheet("font-style: italic; color: gray;")
-                else:
-                    QMessageBox.warning(self, "Employee Not Found", "No employee found with the given ID.")
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to fetch employee data: {e}")
 
     ## MODIFY EMPLOYEE - ID SELECTION
     if modify_employee_flag:
@@ -95,7 +120,8 @@ def employee_widget(self, window, modify_employee_flag=False):
         search_button = QPushButton("Search Table")
         search_button.clicked.connect(lambda: self.open_modifyfromtable_selection("employees", self.modify_employee_id_entry))  # Fixed table reference
         fetch_button = QPushButton("Fetch Employee")
-        fetch_button.clicked.connect(fetch_employee_to_modify)  # Fixed function reference
+        fetch_button.clicked.connect(self.fetch_employee_to_modify)  # Fixed function reference
+        # fetch_button.clicked.connect(self.fetch_customer_to_modify)
 
         modify_layout.addWidget(label)
         modify_layout.addWidget(self.modify_employee_id_entry)

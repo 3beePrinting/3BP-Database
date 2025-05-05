@@ -19,9 +19,20 @@ def open_handle_customers_window(self):
     
     layout = QVBoxLayout()
 
-    # See customer button
     see_customers_button = QPushButton("See Customers")
-    see_customers_button.clicked.connect(lambda: self.show_table("customers"))
+    # when clicked, show the table AND hook up double-click
+    def _show_and_wire_customers():
+        # 1) populate the table
+        self.show_table("customers")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_customer_doubleclick)
+
+    see_customers_button.clicked.connect(_show_and_wire_customers)
     layout.addWidget(see_customers_button)
 
     # Add New customer button
@@ -41,6 +52,47 @@ def open_handle_customers_window(self):
     
     self.handle_window_customer.setLayout(layout)
     self.handle_window_customer.show()
+def _on_customer_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    cust_id = self.table.item(row, 0).text()
+    if not cust_id:
+        return
+
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_customer_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_customer_id_entry.setText(cust_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_customer_to_modify()
+    
+def fetch_customer_to_modify(self):
+    """Load the customer record into the Modify dialog from self.modify_customer_id_entry."""
+    customer_id = self.modify_customer_id_entry.text()
+    if not customer_id:
+        return
+    try:
+        self.cursor.execute(
+            "SELECT * FROM customers WHERE CustomerID = ?",
+            (customer_id,)
+        )
+        customer = self.cursor.fetchone()
+        if not customer:
+            QMessageBox.warning(self, "Not Found", f"No customer with ID {customer_id}")
+            return
+        # fill in each field from your entries_customer dict
+        for i, (key, widget) in enumerate(self.entries_customer.items(), start=1):
+            val = customer[i] if customer[i] is not None else ""
+            if isinstance(widget, QComboBox):
+                if val in [widget.itemText(j) for j in range(widget.count())]:
+                    widget.setCurrentText(val)
+            elif isinstance(widget, QTextEdit):
+                widget.setPlainText(val)
+            else:
+                widget.setText(str(val))
+    except sqlite3.Error as e:
+        QMessageBox.critical(self, "DB Error", f"Could not load customer: {e}")
+
 
 #%% WIDGET
 def customer_widget(self, window, modify_customer_flag = False):
@@ -54,26 +106,26 @@ def customer_widget(self, window, modify_customer_flag = False):
     scroll_content = QWidget()
     layout = QVBoxLayout(scroll_content)
 
-    ## Function to fetch customer from database and fill in all data
-    def fetch_customer_to_modify():
-        customer_id = self.modify_customer_id_entry.text()
-        if customer_id:
-            try:
-                self.cursor.execute("SELECT * FROM customers WHERE CustomerID = ?", (customer_id,))
-                customer = self.cursor.fetchone()
-                if customer:
-                    for i, (key, entry) in enumerate(self.entries_customer.items(), start=1):
-                        value = str(customer[i])
-                        if isinstance(entry, QComboBox):
-                            # Set to 'Neutral' if value is not one of the options
-                            if value in [entry.itemText(j) for j in range(entry.count())]:
-                                entry.setCurrentText(value)
-                        else:
-                            entry.setText(value)
-                else:
-                    QMessageBox.warning(self, "Customer Not Found", "No customer found with the given ID.")
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to fetch customer data: {e}")
+    # ## Function to fetch customer from database and fill in all data
+    # def fetch_customer_to_modify():
+    #     customer_id = self.modify_customer_id_entry.text()
+    #     if customer_id:
+    #         try:
+    #             self.cursor.execute("SELECT * FROM customers WHERE CustomerID = ?", (customer_id,))
+    #             customer = self.cursor.fetchone()
+    #             if customer:
+    #                 for i, (key, entry) in enumerate(self.entries_customer.items(), start=1):
+    #                     value = str(customer[i])
+    #                     if isinstance(entry, QComboBox):
+    #                         # Set to 'Neutral' if value is not one of the options
+    #                         if value in [entry.itemText(j) for j in range(entry.count())]:
+    #                             entry.setCurrentText(value)
+    #                     else:
+    #                         entry.setText(value)
+    #             else:
+    #                 QMessageBox.warning(self, "Customer Not Found", "No customer found with the given ID.")
+    #         except sqlite3.Error as e:
+    #             QMessageBox.critical(self, "Error", f"Failed to fetch customer data: {e}")
 
     if modify_customer_flag:  # MODIFY CUSTOMER
         modify_layout = QHBoxLayout()
@@ -83,7 +135,7 @@ def customer_widget(self, window, modify_customer_flag = False):
         search_button = QPushButton("Search Table")
         search_button.clicked.connect(lambda: self.open_modifyfromtable_selection("customers", self.modify_customer_id_entry))
         fetch_button = QPushButton("Fetch Customer")
-        fetch_button.clicked.connect(fetch_customer_to_modify)
+        fetch_button.clicked.connect(self.fetch_customer_to_modify)
 
         modify_layout.addWidget(label)
         modify_layout.addWidget(self.modify_customer_id_entry)

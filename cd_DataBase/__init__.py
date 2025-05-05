@@ -36,14 +36,14 @@ from PyQt5.QtCore   import QTimer
 class DatabaseApp(QMainWindow):
     #%% Import methods from sub-modules (assumed adapted for PyQt5)
     from ._showtable import show_table, insert_rows_to_table, search_table, reset_table, open_image
-    from ._handle_customers import open_handle_customers_window, open_add_customer_window, open_modify_customer_window, open_remove_customer_window, save_customer, customer_widget
-    from ._handle_suppliers import open_handle_suppliers_window, open_add_supplier_window, open_modify_supplier_window, open_remove_supplier_window, save_supplier, supplier_widget
+    from ._handle_customers import open_handle_customers_window, open_add_customer_window, open_modify_customer_window, open_remove_customer_window, save_customer, customer_widget, _on_customer_doubleclick, fetch_customer_to_modify
+    from ._handle_suppliers import open_handle_suppliers_window, open_add_supplier_window, open_modify_supplier_window, open_remove_supplier_window, save_supplier, supplier_widget, _on_supplier_doubleclick, fetch_supplier_to_modify
     from ._handle_printsettings import open_handle_printsetting_window, widget_printsettings, open_add_printsetting_window, open_modify_printsetting_window, save_printsettings, open_remove_printsettings_window, open_print_settings_window, assign_printsetting, confirm_assign
-    from ._handle_inventory import open_handle_printers_window, open_add_printer_window, open_modify_printer_window, open_remove_printer_window, printer_widgets, save_printer, open_handle_filaments_window, open_add_filament_window, open_modify_filament_window, open_remove_filament_window, filament_widgets, update_price, save_filament, get_selected_properties, restock_filament
-    from ._handle_employees import open_handle_employees_window, open_add_employee_window, open_modify_employee_window, open_remove_employee_window, save_employee, employee_widget
-    from ._handle_expenses import open_handle_expenses_window, open_add_expense_window, open_modify_expense_window, open_remove_expense_window, expense_widget, save_expense
+    from ._handle_inventory import open_handle_printers_window, open_add_printer_window, open_modify_printer_window, open_remove_printer_window, printer_widgets, save_printer, open_handle_filaments_window, open_add_filament_window, open_modify_filament_window, open_remove_filament_window, filament_widgets, update_price, save_filament, get_selected_properties, restock_filament, _on_printer_doubleclick, fetch_printer_to_modify, _on_filament_doubleclick, fetch_filament_to_modify
+    from ._handle_employees import open_handle_employees_window, open_add_employee_window, open_modify_employee_window, open_remove_employee_window, save_employee, employee_widget, _on_employee_doubleclick, fetch_employee_to_modify
+    from ._handle_expenses import open_handle_expenses_window, open_add_expense_window, open_modify_expense_window, open_remove_expense_window, expense_widget, save_expense, _on_expense_doubleclick, fetch_expense_to_modify
 
-    from ._handle_orders import open_add_order_window, open_handle_order_window, open_modify_order_window, open_remove_order_window, save_order, get_selected_services, orders_setup_tabs, fetch_order_to_modify
+    from ._handle_orders import open_add_order_window, open_handle_order_window, open_modify_order_window, open_remove_order_window, save_order, get_selected_services, orders_setup_tabs, fetch_order_to_modify, _on_order_doubleclick
     # Import tab widgets from separate files
     from ._order_tab1 import tab1_widgets, validate_fields_tab1, fun_task_assignment, fun_folder_upload, create_parts_table_tab1, _open_invoice_window
     from ._order_tab2 import tab2_widgets, open_printer_selection, open_filament_selection, price_estimation, update_BTW_and_profit, validate_fields_tab2

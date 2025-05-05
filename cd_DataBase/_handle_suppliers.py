@@ -22,7 +22,19 @@ def open_handle_suppliers_window(self):
 
     # See supplier button
     see_supplier_button = QPushButton("See Suppliers")
-    see_supplier_button.clicked.connect(lambda: self.show_table("suppliers"))
+
+    def _show_and_wire_suppliers():
+        # 1) populate the table
+        self.show_table("suppliers")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_supplier_doubleclick)
+
+    see_supplier_button.clicked.connect(_show_and_wire_suppliers)
     layout.addWidget(see_supplier_button)
 
     # Add New supplier button
@@ -42,6 +54,42 @@ def open_handle_suppliers_window(self):
     
     self.handle_supplier_window.setLayout(layout)
     self.handle_supplier_window.show()
+def _on_supplier_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    supl_id = self.table.item(row, 0).text()
+    if not supl_id:
+        return
+
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_supplier_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_supplier_id_entry.setText(supl_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_supplier_to_modify()
+    
+## Function to fetch supplier from database and fill in all data
+def fetch_supplier_to_modify(self):
+    supplier_id = self.modify_supplier_id_entry.text()
+    if supplier_id:
+        try:
+            self.cursor.execute("SELECT * FROM suppliers WHERE SupplierID = ?", (supplier_id,))
+            supplier = self.cursor.fetchone()
+            if supplier:
+                for i, (key, entry) in enumerate(self.entries_supplier.items(), start=1):
+                    value = str(supplier[i])
+                    if isinstance(entry, QComboBox):
+                        if value in [entry.itemText(j) for j in range(entry.count())]:
+                            entry.setCurrentText(value)
+                        else:
+                            if key == 'products':
+                                entry.setCurrentText('Others')
+                    else:
+                        entry.setText(value)  # For normal text fields
+            else:
+                QMessageBox.warning(self, "Supplier Not Found", "No supplier found with the given ID.")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Error", f"Failed to fetch supplier data: {e}")
     
 #%% WIDGET    
 def supplier_widget(self, window, modify_supplier_flag=False):
@@ -55,28 +103,7 @@ def supplier_widget(self, window, modify_supplier_flag=False):
     scroll_content = QWidget()
     layout = QVBoxLayout(scroll_content)
 
-    ## Function to fetch supplier from database and fill in all data
-    def fetch_supplier_to_modify():
-        supplier_id = self.modify_supplier_id_entry.text()
-        if supplier_id:
-            try:
-                self.cursor.execute("SELECT * FROM suppliers WHERE SupplierID = ?", (supplier_id,))
-                supplier = self.cursor.fetchone()
-                if supplier:
-                    for i, (key, entry) in enumerate(self.entries_supplier.items(), start=1):
-                        value = str(supplier[i])
-                        if isinstance(entry, QComboBox):
-                            if value in [entry.itemText(j) for j in range(entry.count())]:
-                                entry.setCurrentText(value)
-                            else:
-                                if key == 'products':
-                                    entry.setCurrentText('Others')
-                        else:
-                            entry.setText(value)  # For normal text fields
-                else:
-                    QMessageBox.warning(self, "Supplier Not Found", "No supplier found with the given ID.")
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to fetch supplier data: {e}")
+
 
     if modify_supplier_flag:  # MODIFY SUPPLIER
         modify_layout = QHBoxLayout()
@@ -86,7 +113,7 @@ def supplier_widget(self, window, modify_supplier_flag=False):
         search_button = QPushButton("Search Table")
         search_button.clicked.connect(lambda: self.open_modifyfromtable_selection("suppliers", self.modify_supplier_id_entry))
         fetch_button = QPushButton("Fetch Supplier")
-        fetch_button.clicked.connect(fetch_supplier_to_modify)
+        fetch_button.clicked.connect(self.fetch_supplier_to_modify)
 
         modify_layout.addWidget(label)
         modify_layout.addWidget(self.modify_supplier_id_entry)

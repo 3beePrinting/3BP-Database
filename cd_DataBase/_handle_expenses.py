@@ -26,7 +26,18 @@ def open_handle_expenses_window(self):
     layout = QVBoxLayout()
 
     see_expense_button = QPushButton("See Expenses")
-    see_expense_button.clicked.connect(lambda: self.show_table("expenses"))
+    def _show_and_wire_expenses():
+        # 1) populate the table
+        self.show_table("expenses")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_expense_doubleclick)
+
+    see_expense_button.clicked.connect(_show_and_wire_expenses)
     layout.addWidget(see_expense_button)
 
     add_expense_button = QPushButton("Add New Expense")
@@ -44,22 +55,21 @@ def open_handle_expenses_window(self):
     self.handle_window_exp.setLayout(layout)
     self.handle_window_exp.show()
 
-#%% WIDGET CREATION
-def expense_widget(self, window, modify_expense_flag=False):
-    ## Main layout
-    dialog_layout = QVBoxLayout(window)
-    
-    # Scroll Area
-    scroll_area = QScrollArea(window)
-    scroll_area.setWidgetResizable(True)
-    
-    # Content inside scroll
-    scroll_content = QWidget()
-    layout = QVBoxLayout(scroll_content)
+def _on_expense_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    expe_id = self.table.item(row, 0).text()
+    if not expe_id:
+        return
 
-    expense_entries = {}   
-    
-    def fetch_expense_to_modify():
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_expense_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_expense_id_entry.setText(expe_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_expense_to_modify()
+
+def fetch_expense_to_modify(self):
         # Fetch and fill in the fields for the expense to modify
         expense_id = self.modify_expenseid_entry.text().strip()
         self.expense_id = expense_id
@@ -136,6 +146,22 @@ def expense_widget(self, window, modify_expense_flag=False):
         if incorrect_info_flag:
             QMessageBox.warning(None, "Data format/content warning", "Some values fetched in the database for this ID are incorrect. They are automatically removed and set to default in this form.")
   
+#%% WIDGET CREATION
+def expense_widget(self, window, modify_expense_flag=False):
+    ## Main layout
+    dialog_layout = QVBoxLayout(window)
+    
+    # Scroll Area
+    scroll_area = QScrollArea(window)
+    scroll_area.setWidgetResizable(True)
+    
+    # Content inside scroll
+    scroll_content = QWidget()
+    layout = QVBoxLayout(scroll_content)
+
+    expense_entries = {}   
+    
+    
     ## MODIFY EXPENSE - ID SELECTION
     if modify_expense_flag:
         modify_layout = QHBoxLayout()
@@ -145,7 +171,7 @@ def expense_widget(self, window, modify_expense_flag=False):
         search_button = QPushButton("Search Table")
         search_button.clicked.connect(lambda: self.open_modifyfromtable_selection("expenses", self.modify_expenseid_entry))  # Fixed table reference
         fetch_button = QPushButton("Fetch Expense")
-        fetch_button.clicked.connect(fetch_expense_to_modify)  # Fixed function reference
+        fetch_button.clicked.connect(self.fetch_expense_to_modify)  # Fixed function reference
 
         modify_layout.addWidget(label)
         modify_layout.addWidget(self.modify_expenseid_entry)
@@ -602,7 +628,7 @@ def save_expense(self, modify_expense_flag=False):
 def open_modify_expense_window(self):
     # Ask for employee ID to modify
     self.modify_window_exp = QDialog(None)
-    self.modify_window_exp.setWindowTitle("Modify Employee")
+    self.modify_window_exp.setWindowTitle("Modify Expense")
     self.modify_window_exp.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_window_exp.resize(600, 800)
     

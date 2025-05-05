@@ -23,7 +23,18 @@ def open_handle_printers_window(self):
 
     # See button
     see_printer_button = QPushButton("See Printers")
-    see_printer_button.clicked.connect(lambda: self.show_table("printers"))
+    def _show_and_wire_printers():
+        # 1) populate the table
+        self.show_table("printers")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_printer_doubleclick)
+
+    see_printer_button.clicked.connect(_show_and_wire_printers)
     layout.addWidget(see_printer_button)
 
     # Add New button
@@ -43,6 +54,90 @@ def open_handle_printers_window(self):
     
     self.handle_printers_window.setLayout(layout)
     self.handle_printers_window.show()
+
+def _on_printer_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    prnt_id = self.table.item(row, 0).text()
+    if not prnt_id:
+        return
+
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_printer_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_printer_id_entry.setText(prnt_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_printer_to_modify()
+    
+## Function to fetch printer from database and fill in all data
+def fetch_printer_to_modify(self):
+    printer_id = self.modify_printer_id_entry.text()
+    self.printer_id = printer_id
+    
+    # check suppliers and expenses exist
+    self.cursor.execute("SELECT SupplierID FROM suppliers")
+    suppliers = self.cursor.fetchall()
+    supplier_list = [x[0] for x in suppliers]
+    self.cursor.execute("SELECT OCnumber FROM expenses")
+    expenses = self.cursor.fetchall()
+    expenses_list = [x[0] for x in expenses]
+    if printer_id:
+        try:
+            self.cursor.execute("SELECT * FROM printers WHERE PrinterID = ?", (self.printer_id,))
+            printer = self.cursor.fetchone()
+            if printer:
+                for (key, entry), value in zip(self.printer_entries.items(), printer[1:]):  
+                    if isinstance(entry, QLineEdit):  
+                        if key == 'oc_number': 
+                            if value in expenses_list:
+                                entry.setText(str(value))
+                            else:
+                                incorrect_info_flag = True
+                        elif key == 'supplierid':
+                            if value in supplier_list:
+                                entry.setText(str(value))
+                            else:
+                                incorrect_info_flag = True
+                        elif key in ["power", "print_size_x", "print_size_y", "print_size_z", "total_hours", "total_hours_after_last_maintenance"]:
+                            try: # check its a number, otherwise remove
+                                entry.setText(str(float(value)))
+                            except ValueError:
+                                incorrect_info_flag = True
+                        else:
+                            entry.setText(str(value) if value is not None else "")
+                        
+                    elif isinstance(entry, QTextEdit):  
+                        entry.setPlainText(str(value) if value is not None else "")
+                        
+                    elif isinstance(entry, QComboBox):  
+                        if value in [entry.itemText(j) for j in range(entry.count())]:
+                            entry.setCurrentText(value)
+                        else:
+                            incorrect_info_flag = True
+                            
+                    elif isinstance(entry, QDateEdit):  
+                        date = QDate.fromString(value, "yyyy-MM-dd")
+                        if date.isValid():
+                            entry.setDate(date)
+                        else:
+                            incorrect_info_flag = True
+                        
+                # Update image label instead of replacing it
+                if printer[-1]:  # Assuming the last column is 'Picture'
+                    self.image_label.setText("Image exists in database. If you attach a new picture, the old one will be lost.")
+                    self.image_label.setStyleSheet("font-style: italic; color: gray;")
+                else:
+                    self.image_label.setText("No image on database for this ID.")
+                    self.image_label.setStyleSheet("font-style: italic; color: gray;")
+            else:
+                QMessageBox.warning(self, "Printer Not Found", "No printer found with the given ID.")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Error", f"Failed to fetch printer data: {e}")
+
+    # If data inputted were not ok, say it here with a warning message
+    if incorrect_info_flag:
+        QMessageBox.warning(None, "Data format/content warning", "Some values fetched in the database for this ID are incorrect. They are automatically removed and set to default in this form.")
+
     
 #%% PRINTER WIDGET
 def printer_widgets(self, window, modify_printer_flag=False):
@@ -56,74 +151,6 @@ def printer_widgets(self, window, modify_printer_flag=False):
     scroll_content = QWidget()
     layout = QVBoxLayout(scroll_content)
     
-    ## Function to fetch printer from database and fill in all data
-    def fetch_printer_to_modify():
-        printer_id = self.modify_printer_id_entry.text()
-        self.printer_id = printer_id
-        
-        # check suppliers and expenses exist
-        self.cursor.execute("SELECT SupplierID FROM suppliers")
-        suppliers = self.cursor.fetchall()
-        supplier_list = [x[0] for x in suppliers]
-        self.cursor.execute("SELECT OCnumber FROM expenses")
-        expenses = self.cursor.fetchall()
-        expenses_list = [x[0] for x in expenses]
-        if printer_id:
-            try:
-                self.cursor.execute("SELECT * FROM printers WHERE PrinterID = ?", (self.printer_id,))
-                printer = self.cursor.fetchone()
-                if printer:
-                    for (key, entry), value in zip(self.printer_entries.items(), printer[1:]):  
-                        if isinstance(entry, QLineEdit):  
-                            if key == 'oc_number': 
-                                if value in expenses_list:
-                                    entry.setText(str(value))
-                                else:
-                                    incorrect_info_flag = True
-                            elif key == 'supplierid':
-                                if value in supplier_list:
-                                    entry.setText(str(value))
-                                else:
-                                    incorrect_info_flag = True
-                            elif key in ["power", "print_size_x", "print_size_y", "print_size_z", "total_hours", "total_hours_after_last_maintenance"]:
-                                try: # check its a number, otherwise remove
-                                    entry.setText(str(float(value)))
-                                except ValueError:
-                                    incorrect_info_flag = True
-                            else:
-                                entry.setText(str(value) if value is not None else "")
-                            
-                        elif isinstance(entry, QTextEdit):  
-                            entry.setPlainText(str(value) if value is not None else "")
-                            
-                        elif isinstance(entry, QComboBox):  
-                            if value in [entry.itemText(j) for j in range(entry.count())]:
-                                entry.setCurrentText(value)
-                            else:
-                                incorrect_info_flag = True
-                                
-                        elif isinstance(entry, QDateEdit):  
-                            date = QDate.fromString(value, "yyyy-MM-dd")
-                            if date.isValid():
-                                entry.setDate(date)
-                            else:
-                                incorrect_info_flag = True
-                            
-                    # Update image label instead of replacing it
-                    if printer[-1]:  # Assuming the last column is 'Picture'
-                        self.image_label.setText("Image exists in database. If you attach a new picture, the old one will be lost.")
-                        self.image_label.setStyleSheet("font-style: italic; color: gray;")
-                    else:
-                        self.image_label.setText("No image on database for this ID.")
-                        self.image_label.setStyleSheet("font-style: italic; color: gray;")
-                else:
-                    QMessageBox.warning(self, "Printer Not Found", "No printer found with the given ID.")
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to fetch printer data: {e}")
-
-        # If data inputted were not ok, say it here with a warning message
-        if incorrect_info_flag:
-            QMessageBox.warning(None, "Data format/content warning", "Some values fetched in the database for this ID are incorrect. They are automatically removed and set to default in this form.")
 
 
     ## MODIFY PRINTER - ID SELECTION
@@ -135,7 +162,7 @@ def printer_widgets(self, window, modify_printer_flag=False):
         search_button = QPushButton("Search Table")
         search_button.clicked.connect(lambda: self.open_modifyfromtable_selection("printers", self.modify_printer_id_entry))
         fetch_button = QPushButton("Fetch Printer")
-        fetch_button.clicked.connect(fetch_printer_to_modify)
+        fetch_button.clicked.connect(self.fetch_printer_to_modify)
 
         modify_layout.addWidget(label)
         modify_layout.addWidget(self.modify_printer_id_entry)
@@ -552,7 +579,18 @@ def open_handle_filaments_window(self):
 
     # See Filaments button
     see_filaments_button = QPushButton("See Filaments")
-    see_filaments_button.clicked.connect(lambda: self.show_table("filaments"))
+    def _show_and_wire_filaments():
+        # 1) populate the table
+        self.show_table("filaments")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_filament_doubleclick)
+
+    see_filaments_button.clicked.connect(_show_and_wire_filaments)
     layout.addWidget(see_filaments_button)
 
     # Add New Filament button
@@ -572,6 +610,20 @@ def open_handle_filaments_window(self):
     
     self.handle_filaments_window.setLayout(layout)
     self.handle_filaments_window.show()
+    
+def _on_filament_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    fila_id = self.table.item(row, 0).text()
+    if not fila_id:
+        return
+
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_filament_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_filament_id_entry.setText(fila_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_filament_to_modify()
     
 #%% functions for filaments
 # This function calculates the price per gram of the filament, if the expense and quantity are specified. Also the SupplierID is filled in if the expense is given.
@@ -661,6 +713,99 @@ def get_selected_properties(self):
     selected_properties = [service for service, var in self.prop_vars.items() if var.get()]
     return ", ".join(selected_properties)
 
+## Function to fetch printer from database and fill in all data
+def fetch_filament_to_modify(self):
+    filament_id = self.modify_printer_id_entry.text()
+    self.filament_id = filament_id
+    
+    # check suppliers and expenses exist
+    self.cursor.execute("SELECT SupplierID FROM suppliers")
+    suppliers = self.cursor.fetchall()
+    supplier_list = [x[0] for x in suppliers]
+    self.cursor.execute("SELECT OCnumber FROM expenses")
+    expenses = self.cursor.fetchall()
+    expenses_list = [x[0] for x in expenses]
+    
+    if filament_id:
+        try:
+            self.cursor.execute("SELECT * FROM filaments WHERE FilamentID = ?", (self.filament_id,))
+            filament = self.cursor.fetchone()
+            if filament:
+                # Assuming the DB columns are in correct order and match your keys
+                # Skip FilamentID (index 0)
+                keys = ["oc_number", "supplierid", "filament_name", "material", "color",
+                    "quantity_order", "quantity_in_stock", "grams_per_roll", "price_per_gram",
+                    "nozzle_temperature", "bed_temperature", "properties", "notes", "picture" ]
+                notes_addition = ''
+                for key, value in zip(keys, filament[1:]):
+                    if key in self.filament_entries:
+                        entry = self.filament_entries[key]
+
+                        if isinstance(entry, QLineEdit):
+                            if key == 'notes':
+                                value = value + notes_addition
+                                
+                            if key == 'oc_number': 
+                                if value in expenses_list:
+                                    entry.setText(str(value))
+                                else:
+                                    incorrect_info_flag = True
+                            elif key == 'supplierid':
+                                if value in supplier_list:
+                                    entry.setText(str(value))
+                                else:
+                                    incorrect_info_flag = True
+                            elif key in ["quantity_order", "quantity_in_stock", "grams_per_roll", "price_per_gram", "nozzle_temperature", "bed_temperature"] and value!= "":
+                                try: # check its a number, otherwise remove
+                                    entry.setText(str(float(value)))
+                                except ValueError:
+                                    incorrect_info_flag = True
+                            else:
+                                entry.setText(str(value) if value is not None else "")
+                        
+                        elif isinstance(entry, QTextEdit):
+                            entry.setPlainText(str(value) if value is not None else "")
+                            
+                        elif isinstance(entry, QComboBox):
+                            text = str(value) if value is not None else "NA"
+                            entry.setEditable(True)
+                            
+                            index = entry.findText(text)
+                            if index != -1:
+                                entry.setCurrentIndex(index)
+                            else:
+                                entry.setEditText(text)  # Show custom value not in list
+                        elif key == "properties" and isinstance(entry, dict):
+                            # Reset all first
+                            for cb in entry.values():
+                                cb.setChecked(False)
+                            # Check relevant ones
+                            if value:
+                                for prop in value.split(','):
+                                    prop = prop.strip()
+                                    if prop in entry:
+                                        entry[prop].setChecked(True)
+                                        value_new = value.replace(prop, '')
+                                    else:
+                                        notes_addition = f'\nNB: These properties are not within the checkboxes options: {value_new}.'
+
+                # Image handling
+                if filament[-1]:  # Assuming last field is 'picture'
+                    self.image_label.setText("Image exists in database. If you attach a new picture, the old one will be lost.")
+                    self.image_label.setStyleSheet("font-style: italic; color: gray;")
+                else:
+                    self.image_label.setText("No image on database for this ID.")
+                    self.image_label.setStyleSheet("font-style: italic; color: gray;")
+            else:
+                QMessageBox.warning(self, "Filament Not Found", "No filament found with the given ID.")
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Error", f"Failed to fetch filament data: {e}")
+
+    # If data inputted were not ok, say it here with a warning message
+    if incorrect_info_flag:
+        QMessageBox.warning(None, "Data format/content warning", "Some values fetched in the database for this ID are incorrect. They are automatically removed and set to default in this form.")
+
+
 #%% FILAMENT WIDGETS
 def filament_widgets(self, window, modify_filament_flag=False):
     # make it scrollable in case resizing needed
@@ -673,97 +818,6 @@ def filament_widgets(self, window, modify_filament_flag=False):
     scroll_content = QWidget()
     layout = QVBoxLayout(scroll_content)
 
-    ## Function to fetch printer from database and fill in all data
-    def fetch_filament_to_modify():
-        filament_id = self.modify_printer_id_entry.text()
-        self.filament_id = filament_id
-        
-        # check suppliers and expenses exist
-        self.cursor.execute("SELECT SupplierID FROM suppliers")
-        suppliers = self.cursor.fetchall()
-        supplier_list = [x[0] for x in suppliers]
-        self.cursor.execute("SELECT OCnumber FROM expenses")
-        expenses = self.cursor.fetchall()
-        expenses_list = [x[0] for x in expenses]
-        
-        if filament_id:
-            try:
-                self.cursor.execute("SELECT * FROM filaments WHERE FilamentID = ?", (self.filament_id,))
-                filament = self.cursor.fetchone()
-                if filament:
-                    # Assuming the DB columns are in correct order and match your keys
-                    # Skip FilamentID (index 0)
-                    keys = ["oc_number", "supplierid", "filament_name", "material", "color",
-                        "quantity_order", "quantity_in_stock", "grams_per_roll", "price_per_gram",
-                        "nozzle_temperature", "bed_temperature", "properties", "notes", "picture" ]
-                    notes_addition = ''
-                    for key, value in zip(keys, filament[1:]):
-                        if key in self.filament_entries:
-                            entry = self.filament_entries[key]
-    
-                            if isinstance(entry, QLineEdit):
-                                if key == 'notes':
-                                    value = value + notes_addition
-                                    
-                                if key == 'oc_number': 
-                                    if value in expenses_list:
-                                        entry.setText(str(value))
-                                    else:
-                                        incorrect_info_flag = True
-                                elif key == 'supplierid':
-                                    if value in supplier_list:
-                                        entry.setText(str(value))
-                                    else:
-                                        incorrect_info_flag = True
-                                elif key in ["quantity_order", "quantity_in_stock", "grams_per_roll", "price_per_gram", "nozzle_temperature", "bed_temperature"] and value!= "":
-                                    try: # check its a number, otherwise remove
-                                        entry.setText(str(float(value)))
-                                    except ValueError:
-                                        incorrect_info_flag = True
-                                else:
-                                    entry.setText(str(value) if value is not None else "")
-                            
-                            elif isinstance(entry, QTextEdit):
-                                entry.setPlainText(str(value) if value is not None else "")
-                                
-                            elif isinstance(entry, QComboBox):
-                                text = str(value) if value is not None else "NA"
-                                entry.setEditable(True)
-                                
-                                index = entry.findText(text)
-                                if index != -1:
-                                    entry.setCurrentIndex(index)
-                                else:
-                                    entry.setEditText(text)  # Show custom value not in list
-                            elif key == "properties" and isinstance(entry, dict):
-                                # Reset all first
-                                for cb in entry.values():
-                                    cb.setChecked(False)
-                                # Check relevant ones
-                                if value:
-                                    for prop in value.split(','):
-                                        prop = prop.strip()
-                                        if prop in entry:
-                                            entry[prop].setChecked(True)
-                                            value_new = value.replace(prop, '')
-                                        else:
-                                            notes_addition = f'\nNB: These properties are not within the checkboxes options: {value_new}.'
-    
-                    # Image handling
-                    if filament[-1]:  # Assuming last field is 'picture'
-                        self.image_label.setText("Image exists in database. If you attach a new picture, the old one will be lost.")
-                        self.image_label.setStyleSheet("font-style: italic; color: gray;")
-                    else:
-                        self.image_label.setText("No image on database for this ID.")
-                        self.image_label.setStyleSheet("font-style: italic; color: gray;")
-                else:
-                    QMessageBox.warning(self, "Filament Not Found", "No filament found with the given ID.")
-            except sqlite3.Error as e:
-                QMessageBox.critical(self, "Error", f"Failed to fetch filament data: {e}")
-
-        # If data inputted were not ok, say it here with a warning message
-        if incorrect_info_flag:
-            QMessageBox.warning(None, "Data format/content warning", "Some values fetched in the database for this ID are incorrect. They are automatically removed and set to default in this form.")
 
 
     ## MODIFY FILAMENT - ID SELECTION
@@ -774,7 +828,7 @@ def filament_widgets(self, window, modify_filament_flag=False):
         search_button = QPushButton("Search Table")
         search_button.clicked.connect(lambda: self.open_modifyfromtable_selection("filaments", self.modify_printer_id_entry))
         fetch_button = QPushButton("Fetch Filament")
-        fetch_button.clicked.connect(fetch_filament_to_modify)
+        fetch_button.clicked.connect(self.fetch_filament_to_modify)
 
         modify_layout.addWidget(label)
         modify_layout.addWidget(self.modify_printer_id_entry)
