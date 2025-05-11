@@ -240,24 +240,43 @@ def tab1_widgets(self, frame, modify_flag = False):
                 # index = widget.findText(str(value))
                 # widget.setCurrentIndex(index if index != -1 else 0)
                 
-            elif isinstance(widget, QDateEdit):
-                if key in ["date_ordered", "date_required"]:
-                    date = QDate.fromString(value, "yyyy-MM-dd")
-                    if date.isValid():
-                        widget.setDate(date)
-                    else:
-                        self.incorrect_info_flag = True
+            elif isinstance(widget, QDateEdit) and key in ["date_ordered", "date_required"]:
+                # skip blank or null
+                if not value:
+                    continue
+            
+                # strip off any time suffix
+                if isinstance(value, str) and " " in value:
+                    value = value.split(" ")[0]
+            
+                d = QDate.fromString(value, "yyyy-MM-dd")
+                if d.isValid():
+                    widget.setDate(d)
+                else:
+                    self.incorrect_info_flag = True
+
 
             # --- Set service checkboxes ---
-            if key == "services":
-                service_string = self.order_data["services"]
-                for name, cb in self.service_vars.items():
-                    cb.setChecked(False)  # Reset first
-                if service_string:
-                    for name in service_string.split(","):
-                        name = name.strip()
-                        if name in self.service_vars:
-                            self.service_vars[name].setChecked(True)
+            if key.lower() == "services":
+                # --- Set service checkboxes ---
+                # First, clear them all
+                for cb in self.service_vars.values():
+                    cb.setChecked(False)
+                
+                # Grab the raw text from your imported order_data.
+                # Try lowercase key first, then capitalized, then default to empty.
+                service_string = (
+                    self.order_data.get("services")
+                    or self.order_data.get("Services")
+                    or ""
+                )
+                
+                # Now split on commas, strip whitespace, and check matching boxes
+                for part in service_string.split(","):
+                    name = part.strip()         # e.g. "3D Design"
+                    if name in self.service_vars:
+                        self.service_vars[name].setChecked(True)
+
             
         # Additions
         self.cursor.execute("SELECT FirstName, LastName FROM customers WHERE CustomerID = ?", (self.order_data["customerid"],))

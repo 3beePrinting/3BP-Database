@@ -40,12 +40,12 @@ def open_handle_order_window(self):
     layout.addWidget(see_requests_button)
 
     see_open_requests_button = QPushButton("See Open Requests")
-    see_open_requests_button.clicked.connect(_show_and_wire_orders)
+    see_open_requests_button.clicked.connect(lambda: self.show_table("orders", open_req = True))
     layout.addWidget(see_open_requests_button)
     
     see_active_orders_button = QPushButton("See Active Orders")
-    # see_active_orders_button.clicked.connect(lambda: self.show_table("orders", active_ord = True))
-    see_active_orders_button.clicked.connect(_show_and_wire_orders)
+    see_active_orders_button.clicked.connect(lambda: self.show_table("orders", active_ord = True))
+    # see_active_orders_button.clicked.connect(_show_and_wire_orders)
     layout.addWidget(see_active_orders_button)
     
     # See parts button
