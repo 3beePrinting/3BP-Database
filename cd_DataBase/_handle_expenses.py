@@ -6,7 +6,7 @@ Created on Sun Dec 22 13:19:46 2024
 """
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QLineEdit, QTextEdit, QComboBox, QPushButton, QDateEdit,
-    QVBoxLayout, QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QDialog, QScrollArea
+    QVBoxLayout, QHBoxLayout, QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QDialog, QScrollArea
 )
 from PyQt5.QtCore import QSize, QDate, Qt
 from PyQt5.QtGui import QIcon, QFont
@@ -18,11 +18,17 @@ from PyQt5.QtWidgets import (
     QGridLayout, QComboBox, QMessageBox, QDialog
     )
 
+
+
 def open_handle_expenses_window(self):
     self.handle_window_exp = QDialog(self)
     self.handle_window_exp.setWindowTitle("Handle Expenses")
     self.handle_window_exp.setFixedSize(300, 200)
+    
+    # 2) Keep it on top of the main window
+    # self.handle_window_exp.setWindowFlags(self.handle_window_exp.windowFlags() | Qt.WindowStaysOnTopHint)
 
+    
     layout = QVBoxLayout()
 
     see_expense_button = QPushButton("See Expenses")
@@ -65,7 +71,7 @@ def _on_expense_doubleclick(self, row, col):
     self.open_modify_expense_window()
 
     # 3) now fill that dialog’s ID-entry with your selected ID
-    self.modify_expense_id_entry.setText(expe_id)
+    self.modify_expenseid_entry.setText(expe_id)
     # now immediately fetch & populate all other fields
     self.fetch_expense_to_modify()
 
@@ -90,13 +96,30 @@ def fetch_expense_to_modify(self):
                         value = expense[i]
 
                         if key == 'tax_return_applicable':
-                            # Split the string like "Q2 2025" into two combobox values
-                            try:
-                                quarter, year = value.split()
-                                entry[0].setCurrentText(quarter)
+                            # skip if no value
+                            if not value:
+                                continue
+                        
+                            val_str = str(value).strip()
+                            parts = val_str.split()
+                            if len(parts) == 2:
+                                quarter, year = parts
+                        
+                                # — Quarter (unchanged) —
+                                if quarter in [entry[0].itemText(j) for j in range(entry[0].count())]:
+                                    entry[0].setCurrentText(quarter)
+                        
+                                # — Year: add if missing, then set —
+                                year_items = [entry[1].itemText(j) for j in range(entry[1].count())]
+                                if year not in year_items:
+                                    entry[1].addItem(year)
                                 entry[1].setCurrentText(year)
-                            except ValueError:
+                        
+                            else:
                                 incorrect_info_flag = True
+                            
+                                continue
+
     
                         elif isinstance(entry, QLineEdit):
                             if key == 'supplierid':
@@ -123,11 +146,25 @@ def fetch_expense_to_modify(self):
                             entry.setPlainText(str(value))
                             
                         elif isinstance(entry, QDateEdit):
-                            date = QDate.fromString(value, "yyyy-MM-dd")
-                            if date.isValid():
-                                entry.setDate(date)
+                            # 1) skip if no value (None or empty)
+                            if not value:
+                                continue
+                        
+                            # 2) strip off any trailing time ("2020-02-10 00:00:00" → "2020-02-10")
+                            if isinstance(value, str) and " " in value:
+                                value = value.split(" ", 1)[0]
+                        
+                            # 3) try ISO first, then day-first
+                            d = QDate.fromString(value, "yyyy-MM-dd")
+                            if not d.isValid():
+                                d = QDate.fromString(value, "dd-MM-yyyy")
+                        
+                            # 4) if valid, set it; otherwise fall back
+                            if d.isValid():
+                                entry.setDate(d)
                             else:
                                 incorrect_info_flag = True
+
                                 
                         # Update image label instead of replacing it
                         if expense[-1]:  # Assuming the last column is 'Picture'
@@ -158,6 +195,24 @@ def expense_widget(self, window, modify_expense_flag=False):
     # Content inside scroll
     scroll_content = QWidget()
     layout = QVBoxLayout(scroll_content)
+        # ── COPY EXISTING EXPENSE SECTION (Add only, not in modify) ──
+    if not modify_expense_flag:
+        copy_layout = QHBoxLayout()
+        copy_layout.addWidget(QLabel("Copy From Expense ID:"))
+
+        # plain text entry instead of dropdown
+        self.copy_expense_entry = QLineEdit()
+        self.copy_expense_entry.setPlaceholderText("Enter OCnumber…")
+        self.copy_expense_entry.setFixedWidth(100)
+        copy_layout.addWidget(self.copy_expense_entry)
+
+        copy_btn = QPushButton("Copy Expense")
+        copy_btn.clicked.connect(self.copy_expense_to_add)
+        copy_layout.addWidget(copy_btn)
+
+        layout.addLayout(copy_layout)
+        
+        
 
     expense_entries = {}   
     
@@ -226,7 +281,7 @@ def expense_widget(self, window, modify_expense_flag=False):
         widget = widget_type() if widget_type else None
 
         if field == "Purpose":
-                widget.addItems(["Shipping", "Material", "Tools", "Filament", "Printer", "Printer parts", "Marketing", "Electricity", "Phone", "Tax return", "Monthly costs"])
+                widget.addItems(["Shipping", "Materials", "OfficeSupplies", "Filament", "Printer", "Printer parts", "Marketing", "Electricity", "Phone", "Tax return", "MonthlyCosts", "Travel cost", "DigitalTools", "Other"])
                 
         widget.setFixedWidth(200)
 
@@ -499,6 +554,10 @@ def open_add_expense_window(self):
     self.add_expense_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_expense_window.resize(600, 800)
     
+    # 2) Keep it on top of the main window
+    # self.add_expense_window.setWindowFlags(self.add_expense_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Generate a new OCnumber
     start_OCnumber = 600
     self.cursor.execute("SELECT MAX(OCnumber) FROM expenses;")
@@ -623,6 +682,66 @@ def save_expense(self, modify_expense_flag=False):
     except sqlite3.Error as e:
         QMessageBox.critical(None, "Database Error", f"Failed to add/update expense: {e}")
 
+def copy_expense_to_add(self):
+    # 1) read the OCnumber the user typed
+    oc = self.copy_expense_entry.text().strip()
+    if not oc:
+        QMessageBox.warning(None, "Input Error", "Please enter an expense OCnumber to copy from.")
+        return
+
+    # 2) load that row
+    try:
+        self.cursor.execute("SELECT * FROM expenses WHERE OCnumber = ?", (oc,))
+        row = self.cursor.fetchone()
+    except Exception as e:
+        QMessageBox.critical(None, "Database Error", f"Failed to query expense {oc}:\n{e}")
+        return
+
+    if not row:
+        QMessageBox.warning(None, "Not Found", f"No expense found with OCnumber {oc}.")
+        return
+
+    # 3) map the columns (drop OCnumber and Picture)
+    cols = [
+      "supplierid","component","description","link","purpose",
+      "date_ordered","date_delivery","cost_inc_btw","cost_shipping",
+      "btw","order_status","responsible","tax_return_applicable",
+      "invoice_uploaded","tax_to_be_returned","paid_from",
+      "refund_to","status_refund","notes"
+    ]
+    values = dict(zip(cols, row[1:-1]))
+
+    # 4) fill in each widget
+    for key, widget in self.expense_entries.items():
+        val = values.get(key)
+        if val is None:
+            continue
+
+        if isinstance(widget, QLineEdit):
+            widget.setText(str(val))
+
+        elif isinstance(widget, QComboBox):
+            if key == "tax_return_applicable":
+                q, y = str(val).split()[:2]
+                widget[0].setCurrentText(q)
+                widget[1].setCurrentText(y)
+            else:
+                idx = widget.findText(str(val))
+                if idx >= 0:
+                    widget.setCurrentIndex(idx)
+
+        elif isinstance(widget, QDateEdit):
+            s = str(val).split(" ")[0]
+            d = QDate.fromString(s, "yyyy-MM-dd")
+            if not d.isValid():
+                d = QDate.fromString(s, "dd-MM-yyyy")
+            if d.isValid():
+                widget.setDate(d)
+
+        elif isinstance(widget, QTextEdit):
+            widget.setPlainText(str(val))
+
+
 
 #%% MODIFYING EXPENSE
 def open_modify_expense_window(self):
@@ -631,6 +750,10 @@ def open_modify_expense_window(self):
     self.modify_window_exp.setWindowTitle("Modify Expense")
     self.modify_window_exp.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_window_exp.resize(600, 800)
+    
+    # 2) Keep it on top of the main window
+    # self.modify_window_exp.setWindowFlags(self.modify_window_exp.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     # Get the entry fields 
     self.expense_widget(self.modify_window_exp, modify_expense_flag = True)
@@ -641,7 +764,11 @@ def open_remove_expense_window(self):
     self.remove_window_exp.setWindowTitle("Remove Expense")
     self.remove_window_exp.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_window_exp.resize(300, 200)
+    
+    # 2) Keep it on top of the main window
+    # self.remove_window_exp.setWindowFlags(self.remove_window_exp.windowFlags() | Qt.WindowStaysOnTopHint)
 
+    
     layout = QVBoxLayout()
     
     def remove_expense(ocnumber):

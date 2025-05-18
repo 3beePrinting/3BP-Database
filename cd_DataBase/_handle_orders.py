@@ -25,36 +25,37 @@ def open_handle_order_window(self):
 
     # See button
     see_requests_button = QPushButton("See All Requests")
-    def _show_and_wire_orders():
-        # 1) populate the table
-        self.show_table("orders")
-        # 2) remove any old handler
+    def _show_and_wire_orders(table, open_req=False, active_ord=False, print_parts = False):
+        self.show_table(table, open_req=open_req, active_ord=active_ord, print_parts=print_parts)
         try:
             self.table.cellDoubleClicked.disconnect()
         except TypeError:
             pass
-        # 3) wire the new handler
         self.table.cellDoubleClicked.connect(self._on_order_doubleclick)
 
-    see_requests_button.clicked.connect(_show_and_wire_orders)
+
+    see_requests_button.clicked.connect(lambda:_show_and_wire_orders(table="orders"))
     layout.addWidget(see_requests_button)
 
     see_open_requests_button = QPushButton("See Open Requests")
-    see_open_requests_button.clicked.connect(lambda: self.show_table("orders", open_req = True))
+    # see_open_requests_button.clicked.connect(lambda: self.show_table("orders", open_req = True))
+    see_open_requests_button.clicked .connect(lambda:_show_and_wire_orders(table="orders", open_req=True))
     layout.addWidget(see_open_requests_button)
     
     see_active_orders_button = QPushButton("See Active Orders")
-    see_active_orders_button.clicked.connect(lambda: self.show_table("orders", active_ord = True))
-    # see_active_orders_button.clicked.connect(_show_and_wire_orders)
+    # see_active_orders_button.clicked.connect(lambda: self.show_table("orders", active_ord = True))
+    see_active_orders_button.clicked.connect(lambda:_show_and_wire_orders(table="orders", active_ord=True))
     layout.addWidget(see_active_orders_button)
     
     # See parts button
     see_parts_button = QPushButton("See All Request Parts")
-    see_parts_button.clicked.connect(lambda: self.show_table("orderparts"))
+    # see_parts_button.clicked.connect(lambda: self.show_table("orderparts"))
+    see_parts_button.clicked.connect(lambda:_show_and_wire_orders(table="orderparts"))
     layout.addWidget(see_parts_button)
     
     see_printing_progress_button = QPushButton("See Parts Printing Progress")
-    see_printing_progress_button.clicked.connect(lambda: self.show_table("orderparts", print_parts = True))
+    # see_printing_progress_button.clicked.connect(lambda: self.show_table("orderparts", print_parts = True))
+    see_printing_progress_button.clicked.connect(lambda:_show_and_wire_orders(table="orderparts", print_parts = True))
     layout.addWidget(see_printing_progress_button)
     
     # Modify button
@@ -162,7 +163,11 @@ def open_add_order_window(self):
     # self.add_order_window.showMaximized()
     self.add_order_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_order_window.resize(1600, 700)  # Width, Height
+    
+        # 2) Keep it on top of the main window
+    # self.add_order_window.setWindowFlags(self.add_order_window.windowFlags() | Qt.WindowStaysOnTopHint)
 
+    
     # Generate a new OrderID
     try:
         self.cursor.execute("SELECT MAX(OrderID) FROM orders;")
@@ -181,6 +186,10 @@ def open_modify_order_window(self):
     #  Create window to select order
     self.pick_order_to_modify_window = QDialog(None)
     self.pick_order_to_modify_window.setWindowTitle("Pick Request to Modify")
+    
+    # 2) Keep it on top of the main window
+    # self.pick_order_to_modify_window.setWindowFlags(self.pick_order_to_modify_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     main_layout = QVBoxLayout(self.pick_order_to_modify_window)
     # --- Row: Label, Entry, and Search Button ---
@@ -215,12 +224,13 @@ def get_selected_services(self):
 #%% SAVE ORDER DETAILS IN TABLE DB
 def save_order(self, modify_flag=False):
     orderid = self.orderid
-    number_parts = len(self.parts)
+    number_parts = (len(self.parts) or 0) #If its none, make it zero
     
     try:
+        # old_parts = (self.order_data.get('number_parts') or 0) #If its none, make it zero
         # 1. SAVE ORDER PARTS
         # if modify flag, delete parts if number changes. 
-        if modify_flag and ((number_parts > self.order_data['number_parts']) or (number_parts < self.order_data['number_parts'])):    
+        if modify_flag and ((number_parts > (self.order_data.get('number_parts') or 0)) or (number_parts < (self.order_data.get('number_parts') or 0))):    
                 self.cursor.execute("DELETE FROM orderparts WHERE OrderID = ?", (orderid,))
                 self.connection.commit()
             
@@ -234,18 +244,18 @@ def save_order(self, modify_flag=False):
             # Insert the data into the orderparts table
             if modify_flag and (number_parts == self.order_data['number_parts']):
                 self.cursor.execute('''UPDATE orderparts
-                       SET PartName = ?, Material = ?, Color = ?, QuantityOrdered = ?, QuantityPrinted = ?, 
+                       SET PartName = ?, Materials = ?, Color = ?, QuantityOrdered = ?, QuantityPrinted = ?, 
                            PrintSettings = ? WHERE OrderID = ? AND PartNr = ?''',
-                    (part_data['PartName'], part_data['Material'], 
+                    (part_data['PartName'], part_data['Materials'], 
                      part_data['Color'],  part_data['QuantityOrdered'], part_data['QuantityPrinted'], 
                      part_data['PrintSettings'], orderid, part_id))
 
             else: #insert in db
                 self.cursor.execute('''INSERT INTO orderparts (
-                                        OrderID, PartNr, PartName, Material, Color,
+                                        OrderID, PartNr, PartName, Materials, Color,
                                         QuantityOrdered, QuantityPrinted, PrintSettings) 
                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                                    (orderid, part_id, part_data['PartName'], part_data['Material'], part_data['Color'], 
+                                    (orderid, part_id, part_data['PartName'], part_data['Materials'], part_data['Color'], 
                                       part_data['QuantityOrdered'], part_data['QuantityPrinted'], part_data['PrintSettings']))
            
         
@@ -348,7 +358,11 @@ def open_remove_order_window(self):
     self.remove_window_ord = QDialog(None)  # or parent it to your main window
     self.remove_window_ord.setWindowTitle("Remove Request")
     self.remove_window_ord.setFixedSize(300, 200)
+    
+        # 2) Keep it on top of the main window
+    # self.remove_window_ord.setWindowFlags(self.remove_window_ord.windowFlags() | Qt.WindowStaysOnTopHint)
 
+    
     main_layout = QVBoxLayout(self.remove_window_ord)
     
     # --- Row: Label, Entry, and Search Button ---

@@ -13,9 +13,25 @@ Here the following is defined:
 import sqlite3
 import re
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QGroupBox, QSizePolicy, QMessageBox, QFileDialog)
+    QLabel, QPushButton, QGroupBox, QSizePolicy, QMessageBox, QFileDialog, QMenu)
 from PyQt5.QtWidgets import QAction, QDialog, QMessageBox,QApplication
 from settings_dialog import SettingsDialog, load_settings, save_settings
+from .analytics import (
+    RevenuePerPeriodDialog,
+    CostOfGoodsSoldDialog,
+    ExpensesByCategoryDialog,
+    MonthlyBurnRateDialog,
+    FixedVariableExpensesDialog,
+    ExpenseTrendByCategoryDialog,
+    TopExpensesDialog,
+    ExpenseToRevenueRatioDialog,
+    RequestsConversionDialog,
+    OrderStatusDialog,
+    ServiceMixDialog,
+    AverageOrderCostDialog,
+    ExpensesByPeriodDialog,
+)
+
 
 from PyQt5.QtGui import QPixmap, QFont, QIcon
 from PyQt5.QtCore import Qt
@@ -41,7 +57,7 @@ class DatabaseApp(QMainWindow):
     from ._handle_printsettings import open_handle_printsetting_window, widget_printsettings, open_add_printsetting_window, open_modify_printsetting_window, save_printsettings, open_remove_printsettings_window, open_print_settings_window, assign_printsetting, confirm_assign
     from ._handle_inventory import open_handle_printers_window, open_add_printer_window, open_modify_printer_window, open_remove_printer_window, printer_widgets, save_printer, open_handle_filaments_window, open_add_filament_window, open_modify_filament_window, open_remove_filament_window, filament_widgets, update_price, save_filament, get_selected_properties, restock_filament, _on_printer_doubleclick, fetch_printer_to_modify, _on_filament_doubleclick, fetch_filament_to_modify
     from ._handle_employees import open_handle_employees_window, open_add_employee_window, open_modify_employee_window, open_remove_employee_window, save_employee, employee_widget, _on_employee_doubleclick, fetch_employee_to_modify
-    from ._handle_expenses import open_handle_expenses_window, open_add_expense_window, open_modify_expense_window, open_remove_expense_window, expense_widget, save_expense, _on_expense_doubleclick, fetch_expense_to_modify
+    from ._handle_expenses import open_handle_expenses_window, open_add_expense_window, open_modify_expense_window, open_remove_expense_window, expense_widget, save_expense, _on_expense_doubleclick, fetch_expense_to_modify,copy_expense_to_add
 
     from ._handle_orders import open_add_order_window, open_handle_order_window, open_modify_order_window, open_remove_order_window, save_order, get_selected_services, orders_setup_tabs, fetch_order_to_modify, _on_order_doubleclick
     # Import tab widgets from separate files
@@ -116,7 +132,7 @@ class DatabaseApp(QMainWindow):
         action_layout.addWidget(self.logo_label, alignment=Qt.AlignCenter)
 
         # Group: Inventories
-        self.inventory_group = QGroupBox("Inventories")
+        self.inventory_group = QGroupBox("Tables")
         inventory_layout = QVBoxLayout()
 
         self.handle_employees_button = QPushButton("Employees")
@@ -147,20 +163,24 @@ class DatabaseApp(QMainWindow):
         self.handle_printset_button.clicked.connect(self.open_handle_printsetting_window)
         inventory_layout.addWidget(self.handle_printset_button)
         
+
+        
         self.inventory_group.setLayout(inventory_layout)
         action_layout.addWidget(self.inventory_group)
 
         # Group: Requests & Orders
-        self.request_group = QGroupBox("Requests & Orders")
+        self.request_group = QGroupBox("Requests handling")
         request_layout = QVBoxLayout()
-
+        
+        self.handle_orders_button = QPushButton("See Requests")
+        self.handle_orders_button.clicked.connect(self.open_handle_order_window)
+        request_layout.addWidget(self.handle_orders_button)
+        
         self.add_order_button = QPushButton("Add a New Request")
         self.add_order_button.clicked.connect(self.open_add_order_window)
         request_layout.addWidget(self.add_order_button)
 
-        self.handle_orders_button = QPushButton("Requests")
-        self.handle_orders_button.clicked.connect(self.open_handle_order_window)
-        request_layout.addWidget(self.handle_orders_button)
+
 
         self.request_group.setLayout(request_layout)
         action_layout.addWidget(self.request_group)
@@ -172,30 +192,30 @@ class DatabaseApp(QMainWindow):
         self.analytics_group.setLayout(analytics_layout)
         action_layout.addWidget(self.analytics_group)
         
-        # Group: Datasets
-        self.datasets_group = QGroupBox("Datasets")
-        datasets_layout = QVBoxLayout()
-        self.import_excel_button = QPushButton("Import Excel Data")
-        self.import_excel_button.clicked.connect(self.fun_import_database)
-        datasets_layout.addWidget(self.import_excel_button)
+        # # Group: Datasets
+        # self.datasets_group = QGroupBox("Datasets")
+        # datasets_layout = QVBoxLayout()
+        # self.import_excel_button = QPushButton("Import Excel Data")
+        # self.import_excel_button.clicked.connect(self.fun_import_database)
+        # datasets_layout.addWidget(self.import_excel_button)
         
-        self.export_excel_button = QPushButton("Export to Excel")
-        self.export_excel_button.clicked.connect(self.fun_export_database)
-        datasets_layout.addWidget(self.export_excel_button)
+        # self.export_excel_button = QPushButton("Export to Excel")
+        # self.export_excel_button.clicked.connect(self.fun_export_database)
+        # datasets_layout.addWidget(self.export_excel_button)
         
-        self.datasets_group.setLayout(datasets_layout)
-        action_layout.addWidget(self.datasets_group)
+        # self.datasets_group.setLayout(datasets_layout)
+        # action_layout.addWidget(self.datasets_group)
         
               
         # DESIGN OF LEFT PANEL: Specify fonts and sizes
         self.inventory_group.setStyleSheet(style_group)
         self.request_group.setStyleSheet(style_group)
         self.analytics_group.setStyleSheet(style_group)
-        self.datasets_group.setStyleSheet(style_group)
+        # self.datasets_group.setStyleSheet(style_group)
 
         for button in [self.handle_printers_button, self.handle_filaments_button, self.handle_employees_button,
             self.handle_customer_button, self.handle_supplier_button, self.handle_expense_button, self.handle_printset_button,
-            self.add_order_button, self.handle_orders_button, self.import_excel_button, self.export_excel_button]:
+            self.add_order_button, self.handle_orders_button]:
             button.setFont(button_font)
             button.setFixedSize(button_width, button_height)  # Fixed width and height
             button.setStyleSheet(button_style)  # Apply text color
@@ -217,24 +237,128 @@ class DatabaseApp(QMainWindow):
 #%% APP or COMMON FUNCTIONS are defined here
     def _create_menus(self):
         menubar = self.menuBar()
-
-        # File menu (existing/empty)
-        menubar.addMenu("&File")
-
-        # Settings menu (you already added this)
+    
+        # --- File Menu ---
+        file_menu = menubar.addMenu("&File")
+        imp = QAction("Import Database…", self)
+        imp.triggered.connect(self.fun_import_database)
+        file_menu.addAction(imp)
+        exp = QAction("Export Database…", self)
+        exp.triggered.connect(self.fun_export_database)
+        file_menu.addAction(exp)
+    
+        # --- Settings Menu ---
         settings_menu = menubar.addMenu("&Settings")
-        act = QAction("Settings…", self)
-        act.triggered.connect(self._open_settings)
-        settings_menu.addAction(act)
-
-        # View menu — add our new “Check for updates…”
+        settings_act = QAction("Settings…", self)
+        settings_act.triggered.connect(self._open_settings)
+        settings_menu.addAction(settings_act)
+    
+        # --- View Menu ---
         view_menu = menubar.addMenu("&View")
         upd = QAction("Check for updates…", self)
         upd.triggered.connect(self._check_for_updates)
         view_menu.addAction(upd)
+    
+        # --- Analytics Menu ---
+        analytics_menu = menubar.addMenu("&Analytics")
+    
+        # Financial Metrics
+        fm = QMenu("Financial Metrics", self)
+        # 1.1 Revenue & Profit
+        rev = QMenu("Revenue & Profit", self)
+        rev.addAction("Revenue per Period…", 
+                      lambda: RevenuePerPeriodDialog(self, self.connection).exec_())
+        rev.addAction("Cost of Goods Sold (COGS)…", 
+                      lambda: CostOfGoodsSoldDialog(self, self.connection).exec_())
+        rev.addAction("Gross Profit & Margin…")  # placeholder
+        fm.addMenu(rev)
+        # 1.2 Expense Breakdown
+        eb = QMenu("Expense Breakdown", self)
+        eb.addAction("Expenses by Category…", 
+                     lambda: ExpensesByCategoryDialog(self, self.connection).exec_())
+        eb.addAction("Expenses by Period…", 
+             lambda: ExpensesByPeriodDialog(self, self.connection).exec_())
+        eb.addAction("Monthly Burn Rate…", 
+                     lambda: MonthlyBurnRateDialog(self, self.connection).exec_())
+        eb.addAction("Fixed vs Variable Expenses…", 
+                     lambda: FixedVariableExpensesDialog(self, self.connection).exec_())
+        eb.addAction("Expense Trend by Category…", 
+                     lambda: ExpenseTrendByCategoryDialog(self, self.connection).exec_())
+        eb.addAction("Top 10 Expenses…", 
+                     lambda: TopExpensesDialog(self, self.connection).exec_())
+        eb.addAction("Expense-to-Revenue Ratio…", 
+                     lambda: ExpenseToRevenueRatioDialog(self, self.connection).exec_())
+        fm.addMenu(eb)
+        # 1.3 Cash Flow (placeholders)
+        cf = QMenu("Cash Flow", self)
+        cf.addAction("Invoices Issued vs Paid…")
+        cf.addAction("Outstanding Receivables…")
+        fm.addMenu(cf)
+    
+        analytics_menu.addMenu(fm)
+    
+        # Operational Metrics
+        op = QMenu("Operational Metrics", self)
+        # 2.1 Orders & Requests
+        ordr = QMenu("Orders & Requests", self)
+        ordr.addAction("Requests vs Converted Orders…", 
+                       lambda: RequestsConversionDialog(self, self.connection).exec_())
+        ordr.addAction("Order Acceptance Rates…", 
+                       lambda: OrderStatusDialog(self, self.connection).exec_())
+        op.addMenu(ordr)
+        # 2.2 Service Mix
+        svc = QMenu("Service Mix", self)
+        svc.addAction("Service Mix Breakdown…", 
+                      lambda: ServiceMixDialog(self, self.connection).exec_())
+        svc.addAction("Average Order Cost…", 
+                      lambda: AverageOrderCostDialog(self, self.connection).exec_())
+        op.addMenu(svc)
+        # 2.3 Task & Resource Utilization (placeholders)
+        tr = QMenu("Task & Resource Utilization", self)
+        tr.addAction("Printer Utilization…")
+        tr.addAction("Employee Workload…")
+        op.addMenu(tr)
+    
+        analytics_menu.addMenu(op)
+    
+        # Inventory Metrics
+        inv = QMenu("Inventory Metrics", self)
+        # 3.1 Filament Stock
+        fs = QMenu("Filament Stock", self)
+        fs.addAction("Stock Levels vs Usage…")
+        fs.addAction("Days of Stock on Hand…")
+        inv.addMenu(fs)
+        # 3.2 Printers & Print Settings
+        ps = QMenu("Printers & Print Settings", self)
+        ps.addAction("Print Setting Performance…")
+        ps.addAction("Cost per Material…")
+        inv.addMenu(ps)
+    
+        analytics_menu.addMenu(inv)
+    
+        # Customer & Supplier Metrics
+        cs = QMenu("Customer & Supplier Metrics", self)
+        cu = QMenu("Customers", self)
+        cu.addAction("Top Customers by Revenue…")
+        cu.addAction("New vs Returning…")
+        cu.addAction("Customer Lifetime Value…")
+        cs.addMenu(cu)
+        su = QMenu("Suppliers", self)
+        su.addAction("Spend by Supplier…")
+        su.addAction("Lead Times…")
+        cs.addMenu(su)
+    
+        analytics_menu.addMenu(cs)
+    
+        # --- Help Menu ---
+        help_menu = menubar.addMenu("&Help")
+        about = QAction("About…", self)
+        # about.triggered.connect(self._show_about)
+        help_menu.addAction(about)
 
-        # Help menu (empty)
-        menubar.addMenu("&Help")
+
+
+
     def _check_for_updates(self):
         """
         Look in a “dist” subfolder next to the database file for version.json,
@@ -538,3 +662,13 @@ class DatabaseApp(QMainWindow):
             print(f"Folder opened: {folder_path}")
         except Exception as e:
             print(f"Error opening folder: {e}")
+    def _show_revenue_per_period(self):
+        """Open the Revenue per Period analytics dialog."""
+        dlg = RevenuePerPeriodDialog(parent=self, connection=self.connection)
+        dlg.exec_()
+    def _show_expenses_by_category(self):
+        dlg = ExpensesByCategoryDialog(parent=self, connection=self.connection)
+        dlg.exec_()
+    def _show_expenses_per_period(self):
+        dlg = ExpensesByPeriodDialog(parent=self, connection=self.connection)
+        dlg.exec_()

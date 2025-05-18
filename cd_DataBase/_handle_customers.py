@@ -17,6 +17,10 @@ def open_handle_customers_window(self):
     self.handle_window_customer.setWindowTitle("Handle Customers")
     self.handle_window_customer.resize(300, 200)
     
+    # 2) Keep it on top of the main window
+    # self.handle_window_customer.setWindowFlags(self.handle_window_customer.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
 
     see_customers_button = QPushButton("See Customers")
@@ -279,7 +283,11 @@ def open_add_customer_window(self):
     self.add_customer_window.setWindowTitle("Add New Customer")
     self.add_customer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_customer_window.resize(500, 600)
-        
+    
+    # 2) Keep it on top of the main window
+    # self.add_customer_window.setWindowFlags(self.add_customer_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Get the customer entry fields 
     self.customer_widget(self.add_customer_window)
     
@@ -292,6 +300,10 @@ def open_modify_customer_window(self):
     self.modify_window_customer.setWindowTitle("Modify Customer")
     self.modify_window_customer.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_window_customer.resize(500, 600)
+    
+    # 2) Keep it on top of the main window
+    # self.modify_window_customer.setWindowFlags(self.modify_window_customer.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     # Get the customer entry fields 
     self.customer_widget(self.modify_window_customer, modify_customer_flag = True)
@@ -363,6 +375,10 @@ def open_remove_customer_window(self):
     self.remove_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_window.resize(300, 200)
 
+    # 2) Keep it on top of the main window
+    # self.remove_window.setWindowFlags(self.remove_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
     
     def remove_customer(customer_id):

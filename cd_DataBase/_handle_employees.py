@@ -19,6 +19,10 @@ def open_handle_employees_window(self):
     self.handle_window_empl.setWindowTitle("Handle Employees")
     self.handle_window_empl.resize(300, 200)
     
+        # 2) Keep it on top of the main window
+    # self.handle_window_empl.setWindowFlags(self.handle_window_empl.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
 
     # See employees button
@@ -282,6 +286,10 @@ def open_add_employee_window(self):
     self.add_window_empl.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_window_empl.resize(500, 600)
     
+    # 2) Keep it on top of the main window
+    # self.add_window_empl.setWindowFlags(self.add_window_empl.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Define employeeID
     self.cursor.execute("SELECT MAX(EmployeeID) FROM employees;")
     max_employee_id = self.cursor.fetchone()[0]
@@ -392,6 +400,10 @@ def open_modify_employee_window(self):
     self.modify_window_empl.setWindowTitle("Modify Employee")
     self.modify_window_empl.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_window_empl.resize(500, 600)
+    
+    # 2) Keep it on top of the main window
+    # self.modify_window_empl.setWindowFlags(self.modify_window_empl.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     # Get the entry fields 
     self.employee_widget(self.modify_window_empl, modify_employee_flag = True)

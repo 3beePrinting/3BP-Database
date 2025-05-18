@@ -13,6 +13,10 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import win32com.client as win32
+import urllib.parse
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtWidgets import QMessageBox
 
 
 #%% TAB 3 - Overview of the order widget
@@ -68,14 +72,14 @@ Details for OrderID {self.orderid}:
      
                 printed_parts = 0
                 total_parts = 0
-                material_text = self.parts[0]["Material"]
+                material_text = self.parts[0]["Materials"]
                 color_text = self.parts[0]["Color"]
             
                 for i in range(len(self.parts)):
                     part = self.parts[i]
                     printed_parts += int(part["QuantityPrinted"])
                     total_parts += int(part["QuantityOrdered"])
-                    if part["Material"] != material_text:
+                    if part["Materials"] != material_text:
                         material_text = "multiple materials"
                     if part["Color"] != color_text:
                         color_text = "multiple"
@@ -186,7 +190,7 @@ Details for OrderID {self.orderid}:
         save_button.setFixedWidth(150)
         save_button.setIcon(icon) 
         layout.addWidget(save_button, alignment=Qt.AlignRight)
-        save_button.clicked.connect(lambda: self.save_order(modify_flag))
+        save_button.clicked.connect(lambda: self.save_order())
         
     # Prev button
     prev_button = QPushButton("Previous Tab")
@@ -200,125 +204,184 @@ Details for OrderID {self.orderid}:
 #%% EMAIL FUNCTIONS
  # Send request to colleague to check quotation
 def fun_ask_price_consultation_email(self, employee):
-    order_id = self.orderid
-    entries = self.order_entries_tab1
-    total_cost = float(self.order_entries_tab2["priceexclbtw"].text().strip())
-    
-    # Check inputs
+    """
+    Opens the default mail client with a prefilled message asking
+    a colleague to review the cost estimation for the current order.
+    """
+    order_id   = self.orderid
+    entries    = self.order_entries_tab1
+    # get the excl. BTW price as float (fallback to 0.0 on error)
+    try:
+        total_cost = float(self.order_entries_tab2["priceexclbtw"].text().strip())
+    except Exception:
+        total_cost = 0.0
+
+    # --- Lookup the consulting employee’s email ---
     try:
         consult_employee = employee.currentText()
-        subject = f"Ask a consult to {consult_employee}"
-        
-        first_name, last_name = consult_employee.split(" ", 1)  # Split into two parts
-
-        self.cursor.execute("SELECT Email FROM employees WHERE FirstName = ? AND LastName = ?", (first_name, last_name))
-        recipient = self.cursor.fetchone()[0]
-        
-        customerid = entries["customerid"].text()
-        self.cursor.execute("SELECT FirstName, LastName, Email FROM customers WHERE CustomerID = ?", (customerid))
-        customer_firstname, customer_lastname, customer_email = self.cursor.fetchone()
-        
-        body = f""" Hi colleague!
-Could you double-check my cost estimation for Order {order_id}.
-More info on the order: 
-    • Customer data: ID {customerid}, Name {customer_firstname} {customer_lastname}, email {customer_email},
-    • Description: {entries["description"].text()}
-    • Date Order: {entries["date_ordered"].date().toString("yyyy-MM-dd")}
-    • My cost estimation: {total_cost}  euro excl. BTW & shipping 
-For more information open the order on the database.
-    
-    """
-    except ValueError:
-        print("Insufficient inputs provided for task assignment.")
-        return None
-
-    try:
-        # Connect to Outlook
-        outlook = win32.Dispatch('outlook.application')
-        
-        # Create a new email
-        mail = outlook.CreateItem(0)  # 0 corresponds to a MailItem
-        
-        # Set recipient, subject, and body
-        mail.To = recipient
-        mail.Subject = subject
-        mail.Body = body
-        
-        # Open the email for review (doesn't send it automatically)
-        mail.Display()  # Opens the email window in Outlook for editing
-        
-        print("Email created successfully in Outlook.")
+        first_name, last_name = consult_employee.split(" ", 1)
+        self.cursor.execute(
+            "SELECT Email FROM employees WHERE FirstName = ? AND LastName = ?",
+            (first_name, last_name)
+        )
+        row = self.cursor.fetchone()
+        if not row or not row[0]:
+            QMessageBox.warning(
+                self,
+                "Not Found",
+                f"No email address found for {consult_employee}."
+            )
+            return
+        recipient = row[0]
     except Exception as e:
-        print(f"An error occurred: {e}")
+        QMessageBox.critical(
+            self,
+            "Lookup Error",
+            f"Failed to look up email for {consult_employee}:\n{e}"
+        )
+        return
+
+    # --- Lookup the customer’s details ---
+    try:
+        customerid = entries["customerid"].text().strip()
+        if not customerid:
+            QMessageBox.warning(
+                self,
+                "Missing Data",
+                "No Customer ID entered for this order."
+            )
+            return
+
+        self.cursor.execute(
+            "SELECT FirstName, LastName, Email FROM customers WHERE CustomerID = ?",
+            (customerid,)
+        )
+        cust = self.cursor.fetchone()
+        if not cust:
+            QMessageBox.warning(
+                self,
+                "Not Found",
+                f"No customer found with ID {customerid}."
+            )
+            return
+
+        customer_firstname, customer_lastname, customer_email = cust
+    except Exception as e:
+        QMessageBox.critical(
+            self,
+            "Lookup Error",
+            f"Failed to look up customer details:\n{e}"
+        )
+        return
+
+    # --- Build the mail subject & body ---
+    subject = f"Consult on Cost Estimation for Order #{order_id}"
+    body = (
+        f"Hi {consult_employee},\n\n"
+        f"Could you please double-check my cost estimation for Order {order_id}?\n\n"
+        f"• Customer: ID {customerid}, {customer_firstname} {customer_lastname}, {customer_email}\n"
+        f"• Description: {entries['description'].text()}\n"
+        f"• Date Ordered: {entries['date_ordered'].date().toString('yyyy-MM-dd')}\n"
+        f"• Estimated Price (excl. BTW & shipping): €{total_cost:.2f}\n\n"
+        "Thanks in advance!\n"
+    )
+
+    # --- Launch default mail client via mailto: URI ---
+    params = {
+        "subject": subject,
+        "body":    body
+    }
+    mailto = QUrl(
+        "mailto:" + urllib.parse.quote(recipient) + "?" +
+        urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+    )
+
+    if not QDesktopServices.openUrl(mailto):
+        QMessageBox.critical(
+            self,
+            "Mail Error",
+            "Could not open your mail client. "
+            "Please ensure you have a default mail application configured."
+        )
     
     
     
  # Send email client draft
 def fun_client_email(self, language_combo):
+    """
+    Opens the default mail client with a customer‐facing email
+    about their cost estimate, in the selected language.
+    """
+    # --- Gather and validate inputs ---
     try:
         total_cost = float(self.order_entries_tab2["priceexclbtw"].text().strip())
-        language = language_combo.currentText()
-        
-        customerid = self.order_entries_tab1["customerid"].text()
-        self.cursor.execute("SELECT Email FROM customers WHERE CustomerID = ?", (customerid))
-        recipient = self.cursor.fetchone()[0]
-    except:
-        QMessageBox.critical(None, "Error", "Insufficient data inputted.")
-    
-    subject = "New form submission"
-    
-    if language == 'English':
-        body = f"""Dear Sir/Madam,
+        language   = language_combo.currentText()
 
+        customerid = self.order_entries_tab1["customerid"].text().strip()
+        if not customerid:
+            raise ValueError("Missing Customer ID")
 
-Thank you for your message and your interest in 3BeePrinting! 
+        # fetch the customer’s email
+        self.cursor.execute(
+            "SELECT Email FROM customers WHERE CustomerID = ?",
+            (customerid,)
+        )
+        row = self.cursor.fetchone()
+        if not row or not row[0]:
+            raise ValueError(f"No email for customer {customerid}")
+        recipient = row[0]
 
-The cost for printing your design in PLA is {total_cost} euro, excluding BTW and shipping costs.  
-If you agree to the terms, then please provide the following information so that we may prepare the invoice and begin processing your order:
-   1. Your full name and address.
-   2. Print color preferences.
-   3. Do you want to pick up the print in Delft/Rotterdam? Or do you want to have the print shipped to your address (6.95 euros)?
-
-We are looking forward to hearing from you.
-
-
-Kind regards,
-The 3BeePrinting Team
-    """
-    else:
-        body = f"""Beste Meneer/Mevrouw,
-
-
-Bedankt voor uw bericht en interesse in 3BeePrinting!
-
-De totale kosten om dit te printen in PLA zijn {total_cost} euro, exclusief BTW and verzendkosten.  
-Als je hiermee akkoord gaat, zou je het volgende willen laten weten:
-   1. Uw naam en adresgegevens.
-   2. Heeft u kleurvoorkeuren?
-   3. Wilt u het ophalen in Delft/Rotterdam? Of zullen we het verzenden (6.95 euros)?
-
-In afwachting van uw reactie.
-
-
-Met vriendelijke groet,
-The 3BeePrinting Team
-    """
-    
-    try:
-        # Connect to Outlook
-        outlook = win32.Dispatch('outlook.application')
-        
-        # Create a new email
-        mail = outlook.CreateItem(0)  # 0 corresponds to a MailItem
-        
-        # Set recipient, subject, and body
-        mail.To = recipient
-        mail.Subject = subject
-        mail.Body = body
-        
-        # Open the email for review (doesn't send it automatically)
-        mail.Display()  # Opens the email window in Outlook for editing
-        
-        print("Email created successfully in Outlook.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        QMessageBox.critical(
+            None,
+            "Error",
+            f"Cannot prepare email:\n{e}"
+        )
+        return
+
+    # --- Build subject & body ---
+    subject = "Your 3BeePrinting Cost Estimate"
+
+    if language == 'English':
+        body = (
+            "Dear Sir/Madam,\n\n"
+            "Thank you for your message and your interest in 3BeePrinting!\n\n"
+            f"The cost for printing your design in PLA is €{total_cost:.2f}, excluding BTW and shipping.\n"
+            "If you agree to the terms, please let us know:\n"
+            "  1. Your full name and address.\n"
+            "  2. Print color preferences.\n"
+            "  3. Pickup in Delft/Rotterdam or shipping (€6.95)?\n\n"
+            "We look forward to your reply.\n\n"
+            "Kind regards,\n"
+            "The 3BeePrinting Team"
+        )
+    else:
+        body = (
+            "Beste Meneer/Mevrouw,\n\n"
+            "Bedankt voor uw bericht en interesse in 3BeePrinting!\n\n"
+            f"De totale kosten om in PLA te printen zijn €{total_cost:.2f}, exclusief BTW en verzendkosten.\n"
+            "Als u akkoord gaat, wilt u dan aangeven:\n"
+            "  1. Uw naam en adresgegevens.\n"
+            "  2. Kleurvoorkeuren.\n"
+            "  3. Ophalen in Delft/Rotterdam of verzenden (€6,95)?\n\n"
+            "Met vriendelijke groet,\n"
+            "The 3BeePrinting Team"
+        )
+
+    # --- Launch default mail client via mailto: ---
+    params = {
+        "subject": subject,
+        "body":    body
+    }
+    mailto = QUrl(
+        "mailto:" + urllib.parse.quote(recipient)
+        + "?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+    )
+
+    if not QDesktopServices.openUrl(mailto):
+        QMessageBox.critical(
+            None,
+            "Mail Error",
+            "Could not open your mail client.\n"
+            "Please ensure you have a default mail application configured."
+        )
