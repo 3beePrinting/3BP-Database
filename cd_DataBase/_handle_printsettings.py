@@ -183,6 +183,10 @@ def open_print_settings_window(self):
     self.printsettings_popup.setWindowTitle("PrintSettings")
     self.printsettings_popup.resize(1200, 700)
     
+    # 2) Keep it on top of the main window
+    # self.printsettings_popup.setWindowFlags(self.printsettings_popup.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     main_layout = QVBoxLayout(self.printsettings_popup)
     
     # --- Buttons above the table ---
@@ -248,6 +252,10 @@ def assign_printsetting(self):
     self.assign_popup = QDialog(self)
     self.assign_popup.setWindowTitle("Assign Print Settings")
     self.assign_popup.resize(400, 400)
+    
+    # 2) Keep it on top of the main window
+    # self.assign_popup.setWindowFlags(self.assign_popup.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     layout = QVBoxLayout(self.assign_popup)
     layout.addWidget(QLabel(f"Assign PrintSetting ID {print_setting_id} to which PartNr?"))
@@ -321,6 +329,10 @@ def open_handle_printsetting_window(self):
     self.handle_window_printset.setWindowTitle("Handle Print Settings")
     self.handle_window_printset.resize(300, 200)
     
+    # 2) Keep it on top of the main window
+    # self.handle_window_printset.setWindowFlags(self.handle_window_printset.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
 
     # See button
@@ -355,6 +367,10 @@ def open_add_printsetting_window(self, from_ordertab = False):
     self.add_window_printset.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_window_printset.resize(400, 500)
 
+    # 2) Keep it on top of the main window
+    # self.add_window_printset.setWindowFlags(self.add_window_printset.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Generate a new PrintSettingID
     try:
         self.cursor.execute("SELECT MAX(PrintSettingID) FROM printsettings;")
@@ -374,6 +390,10 @@ def open_modify_printsetting_window(self, from_ordertab = False):
     self.modify_window_printset.setWindowTitle("Modify Print Setting")
     self.modify_window_printset.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_window_printset.resize(400, 500)
+    
+    # 2) Keep it on top of the main window
+    # self.modify_window_printset.setWindowFlags(self.modify_window_printset.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     # Get the entry fields 
     self.widget_printsettings(self.modify_window_printset, modify_flag_printsettings = True)

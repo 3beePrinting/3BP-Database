@@ -13,6 +13,7 @@ import re
 
 def show_table(self, table_name, open_req=False, active_ord=False, print_parts=False):
     # STEP1 : Clear the current TableWidget and associated widgets
+    self.current_table = table_name
     for i in reversed(range(self.table_frame.layout().count())):
         widget = self.table_frame.layout().itemAt(i).widget()
         if widget is not None:
@@ -21,7 +22,7 @@ def show_table(self, table_name, open_req=False, active_ord=False, print_parts=F
     # STEP2: Fetch data using pandas
     try:
         if open_req:
-            query = f"SELECT * FROM {table_name} WHERE stage = 'Request';"
+            query = f"SELECT * FROM {table_name} WHERE stage = 'Request' AND NOT status = 'Not accepted';"
         elif active_ord:
             query = f"SELECT * FROM {table_name} WHERE stage = 'Order';"
         elif print_parts:

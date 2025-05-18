@@ -18,6 +18,10 @@ def open_handle_suppliers_window(self):
     self.handle_supplier_window.setWindowTitle("Handle Suppliers")
     self.handle_supplier_window.resize(300, 200)
     
+    # 2) Keep it on top of the main window
+    # self.handle_supplier_window.setWindowFlags(self.handle_supplier_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
 
     # See supplier button
@@ -220,6 +224,10 @@ def open_add_supplier_window(self):
     self.add_supplier_window.setWindowTitle("Add New Supplier")
     self.add_supplier_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_supplier_window.resize(500, 600)
+
+    # 2) Keep it on top of the main window
+    # self.add_supplier_window.setWindowFlags(self.add_supplier_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     # Get the customer entry fields 
     self.supplier_widget(self.add_supplier_window)
@@ -313,6 +321,10 @@ def open_modify_supplier_window(self):
     self.modify_supplier_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_supplier_window.resize(500, 600)
     
+    # 2) Keep it on top of the main window
+    # self.modify_supplier_window.setWindowFlags(self.modify_supplier_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Get the supplier entry fields 
     self.supplier_widget(self.modify_supplier_window, modify_supplier_flag = True)
 
@@ -323,6 +335,10 @@ def open_remove_supplier_window(self):
     self.remove_supplier_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_supplier_window.resize(300, 200)
 
+    # 2) Keep it on top of the main window
+    # self.remove_supplier_window.setWindowFlags(self.remove_supplier_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
     
     def remove_supplier(supplier_id):

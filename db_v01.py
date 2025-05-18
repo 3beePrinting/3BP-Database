@@ -19,8 +19,6 @@ from PyQt5.QtWidgets import QApplication, QDialog
 SETTINGS_FILE = "settings.json" #input settings file
 
 
-
-
 def main():
     app = QApplication(sys.argv)
 
