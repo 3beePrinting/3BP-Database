@@ -10,8 +10,12 @@ Code for order tab1
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QCheckBox, QComboBox, QTableWidget,QWidget,
     QTableWidgetItem, QMenu, QDateEdit, QFileDialog, QMessageBox, QGridLayout, QTextEdit, QScrollArea)
+from PyQt5.QtWidgets import QApplication, QDialog
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui  import QDesktopServices
+import urllib.parse
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtCore import Qt, QDate, QTimer
 import os
 import win32com.client as win32
 import shutil
@@ -123,7 +127,7 @@ def tab1_widgets(self, frame, modify_flag = False):
         elif stage == "Order":
             status_options = ["Accepted", "Invoice Sent", "Invoice Paid", "Designing", "Printing", "Ready", "Shipped"]
         elif stage == "Request":
-            status_options = ["Received", "Price Estimation", "Email Sent", "Reminder Sent"]
+            status_options = ["Received", "Price Estimation", "Email Sent", "Reminder Sent", "Not accepted"]
         else:
             status_options = []
 
@@ -311,7 +315,7 @@ def tab1_widgets(self, frame, modify_flag = False):
     
 #%% Make parts table in tab1
 def create_parts_table_tab1(self, layout, modify_flag=False):
-    columns = ["PartID", "OrderID", "PartNr", "PartName", "Material", "Color", "QuantityOrdered", "QuantityPrinted", "PrintSettings"]
+    columns = ["PartID", "OrderID", "PartNr", "PartName", "Materials", "Color", "QuantityOrdered", "QuantityPrinted", "PrintSettings"]
     self.parts_table = QTableWidget()
     self.parts_table.setColumnCount(len(columns))
     self.parts_table.setHorizontalHeaderLabels(columns)
@@ -497,61 +501,84 @@ def validate_fields_tab1(self):
 
 # Function to create email to send task to the selected employee
 def fun_task_assignment(self):
+    """
+    Build and open a mailto: link to assign the current order as a task
+    to the selected employee, pre‐filling To, Subject, and Body.
+    """
     order_id = self.orderid
-    entries = self.order_entries_tab1
-    
-    # Check inputs
+    entries  = self.order_entries_tab1
+
+    # --- Look up employee email ---
     try:
         employee_name = entries["responsible"].currentText()
-    
-        first_name, last_name = employee_name.split(" ", 1)  # Split into two parts
-    
-    
-        # define recipient email
-        self.cursor.execute("SELECT Email FROM employees WHERE FirstName = ? AND LastName = ?", (first_name, last_name))
-        recipient = self.cursor.fetchone()[0]
-        
-        # Define text of message
-        customerid = entries["customerid"].text()
-        self.cursor.execute("SELECT FirstName, LastName, Email FROM customers WHERE CustomerID = ?", (customerid))
-        customer_firstname, customer_lastname, customer_email = self.cursor.fetchone()
-    
-        subject = "Task assignment - to you, dear!" 
-        body = f"""Dear {employee_name},
-Please find attached the details of the assigned job.
-
-    • OrderID: {order_id}
-    • Customer: ID {customerid}, {customer_firstname} {customer_lastname}, {customer_email}
-    • Description: {entries["description"].text()}
-    • Date Order: {entries["date_ordered"].date().toString("yyyy-MM-dd")}
-    • Current Status: {entries["status"].currentText()}  """
-
-    except ValueError:
-        print("Insufficient inputs provided for task assignment.")
-        return None
-    
-    try:
-        # Connect to Outlook
-        outlook = win32.Dispatch('outlook.application')
-
-        # Create a new email
-        mail = outlook.CreateItem(0)  # 0 corresponds to a MailItem
-
-        # Set recipient, subject, and body
-        mail.To = recipient
-        mail.Subject = subject
-        mail.Body = body
-
-        # Add an attachment
-        # attachment_path = r'C:\path\to\your\file.txt'  # Replace with the file path
-        # mail.Attachments.Add(attachment_path)
-
-        # Open the email for review (doesn't send it automatically)
-        mail.Display()  # Opens the email window in Outlook for editing
-
-        print("Email created successfully in Outlook.")
+        first_name, last_name = employee_name.split(" ", 1)
+        self.cursor.execute(
+            "SELECT Email FROM employees WHERE FirstName = ? AND LastName = ?",
+            (first_name, last_name)
+        )
+        row = self.cursor.fetchone()
+        if not row:
+            QMessageBox.warning(self, "Not Found",
+                                f"No email found for employee {employee_name}.")
+            return
+        recipient = row[0]
     except Exception as e:
-        print(f"An error occurred: {e}")
+        QMessageBox.critical(self, "Lookup Error",
+                             f"Failed to look up employee email:\n{e}")
+        return
+
+    # --- Look up customer details ---
+    try:
+        customerid = entries["customerid"].text().strip()
+        if not customerid:
+            QMessageBox.warning(self, "Missing Data",
+                                "No Customer ID provided for the order.")
+            return
+
+        self.cursor.execute(
+            "SELECT FirstName, LastName, Email FROM customers WHERE CustomerID = ?",
+            (customerid,)
+        )
+        cust = self.cursor.fetchone()
+        if not cust:
+            QMessageBox.warning(self, "Not Found",
+                                f"No customer found with ID {customerid}.")
+            return
+
+        customer_firstname, customer_lastname, customer_email = cust
+    except Exception as e:
+        QMessageBox.critical(self, "Lookup Error",
+                             f"Failed to look up customer details:\n{e}")
+        return
+
+    # --- Build subject & body ---
+    subject = f"Task Assignment: Order #{order_id}"
+    body = (
+        f"Dear {employee_name},\n\n"
+        "Please find below the details of the assigned job:\n\n"
+        f"  • Order ID: {order_id}\n"
+        f"  • Customer: ID {customerid}, {customer_firstname} {customer_lastname}, {customer_email}\n"
+        f"  • Description: {entries['description'].text()}\n"
+        f"  • Date Ordered: {entries['date_ordered'].date().toString('yyyy-MM-dd')}\n"
+        f"  • Current Status: {entries['status'].currentText()}\n\n"
+        "Best regards,\nYour 3BP Database Application"
+    )
+
+    # --- URL‐encode and open mailto: link ---
+    params = {
+        "subject": subject,
+        "body":    body
+    }
+    mailto = QUrl("mailto:" + urllib.parse.quote(recipient) + "?" +
+                  urllib.parse.urlencode(params, quote_via=urllib.parse.quote))
+
+    if not QDesktopServices.openUrl(mailto):
+        QMessageBox.critical(
+            self,
+            "Mail Error",
+            "Could not open your mail client. "
+            "Please ensure you have a default mail application configured."
+        )
         
 # Function to create folder and upload files received
 def fun_folder_upload(self):       

@@ -94,6 +94,11 @@ def fun_import_database(self):
                 df_import.to_sql(table_name, self.connection, if_exists="append", index=False)
 
         QMessageBox.information(self, "Success", "Data imported successfully!")
+        # refresh current table so you immediately see the new rows
+        try:
+            self.show_table(self.current_table)
+        except Exception:
+            pass
 
     except Exception as e:
         QMessageBox.critical(self, "Error", f"Failed to import data:\n{str(e)}")

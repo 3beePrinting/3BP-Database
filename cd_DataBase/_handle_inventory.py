@@ -19,6 +19,10 @@ def open_handle_printers_window(self):
     self.handle_printers_window.setWindowTitle("Handle Printers")
     self.handle_printers_window.resize(300, 200)
     
+    # 2) Keep it on top of the main window
+    # self.handle_printers_window.setWindowFlags(self.handle_printers_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
 
     # See button
@@ -384,7 +388,11 @@ def open_add_printer_window(self):
     self.add_printer_window.setWindowTitle("Add New Printer")
     self.add_printer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_printer_window.resize(500, 600)
-        
+     
+    # 2) Keep it on top of the main window
+    # self.add_printer_window.setWindowFlags(self.add_printer_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Get the customer entry fields 
     self.printer_widgets(self.add_printer_window)
 
@@ -499,6 +507,10 @@ def open_modify_printer_window(self):
     self.modify_printer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_printer_window.resize(500, 600)
     
+    # 2) Keep it on top of the main window
+    # self.modify_printer_window.setWindowFlags(self.modify_printer_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Get the entry fields 
     self.printer_widgets(self.modify_printer_window, modify_printer_flag = True)
 
@@ -509,6 +521,10 @@ def open_remove_printer_window(self):
     self.remove_printer_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_printer_window.resize(300, 200)
 
+    # 2) Keep it on top of the main window
+    # self.remove_printer_window.setWindowFlags(self.remove_printer_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
     
     def remove_printer(printer_id):
@@ -574,6 +590,10 @@ def open_handle_filaments_window(self):
     self.handle_filaments_window = QDialog(self)
     self.handle_filaments_window.setWindowTitle("Handle Filaments")
     self.handle_filaments_window.resize(300, 200)
+    
+    # 2) Keep it on top of the main window
+    # self.handle_filaments_window.setWindowFlags(self.handle_filaments_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
     
     layout = QVBoxLayout()
 
@@ -1096,6 +1116,10 @@ def open_add_filament_window(self):
     self.add_filament_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.add_filament_window.resize(500, 600)
     
+    # 2) Keep it on top of the main window
+    # self.add_filament_window.setWindowFlags(self.add_filament_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Generate a new filamentID - needed for image uploading
     self.cursor.execute("SELECT MAX(FilamentID) FROM filaments;")
     max_filament_id = self.cursor.fetchone()[0]
@@ -1197,6 +1221,10 @@ def open_modify_filament_window(self):
     self.modify_filament_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.modify_filament_window.resize(500, 600)
     
+    # 2) Keep it on top of the main window
+    # self.modify_filament_window.setWindowFlags(self.modify_filament_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     # Get the entry fields 
     self.filament_widgets(self.modify_filament_window, modify_filament_flag = True)
    
@@ -1208,6 +1236,10 @@ def open_remove_filament_window(self):
     self.remove_filament_window.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
     self.remove_filament_window.resize(300, 200)
 
+    # 2) Keep it on top of the main window
+    # self.remove_filament_window.setWindowFlags(self.remove_filament_window.windowFlags() | Qt.WindowStaysOnTopHint)
+
+    
     layout = QVBoxLayout()
     
     def remove_filament(filament_id):

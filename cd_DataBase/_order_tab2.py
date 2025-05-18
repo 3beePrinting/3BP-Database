@@ -114,9 +114,10 @@ def update_BTW_and_profit(self):
         
     # --- Total Cost Calculation ---
     price_exclBTW = float(data['priceexclbtw'].text().strip())
-    price_inclBTW = price_exclBTW * (1 + self.BTW) + shipping_cost
+    # price_inclBTW = price_exclBTW * (1 + self.BTW) + shipping_cost
+    # profit = price_exclBTW - material_price - electricity_price
+    price_inclBTW = float(data['price_incl_btw_and_shipping'].text().strip())
     profit = price_exclBTW - material_price - electricity_price
-
     # --- Display Results ---
     result = {
         "price_incl_btw_and_shipping": price_inclBTW,
@@ -215,7 +216,7 @@ def open_printer_selection(self):
 #%% Select filaments
 def open_filament_selection(self):
     # Fetch printers from the database
-    self.cursor.execute("SELECT FilamentID, FilamentName, Material, Color, QuantityInStock, GramsPerRoll FROM filaments")
+    self.cursor.execute("SELECT FilamentID, FilamentName, Materials, Color, QuantityInStock, GramsPerRoll FROM filaments")
     filaments = self.cursor.fetchall()
 
     # Create popup dialog
