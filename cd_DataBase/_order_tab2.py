@@ -471,21 +471,23 @@ def tab2_widgets(self, tab2, modify_flag = False):
             extraservice_checkboxes_frame.addWidget(checkbox)
             
     if modify_flag:
-        selected_services = [s.strip() for s in self.order_data["extra_services"].split(",")]
+            # safely pull the services string (could be None) and split
+            raw_services = self.order_data.get("extra_services") or ""
+            selected_services = [s.strip() for s in raw_services.split(",") if s.strip()]
     
-        # Track unmatched values
-        unmatched = []
+            # Track unmatched values
+            unmatched = []
     
-        for service in selected_services:
-            if service in self.extraservice_vars:
-                self.extraservice_vars[service].setChecked(True)
-            else:
-                unmatched.append(service)
+            for service in selected_services:
+                if service in self.extraservice_vars:
+                    self.extraservice_vars[service].setChecked(True)
+                else:
+                    unmatched.append(service)
     
-        # If there are unmatched services, check "Others" and fill the entry
-        if unmatched:
-            self.others_checkbox.setChecked(True)
-            self.others_entry.setText(", ".join(unmatched))
+            # If there are unmatched services, check "Others" and fill the entry
+            if unmatched:
+                self.others_checkbox.setChecked(True)
+                self.others_entry.setText(", ".join(unmatched))
 
 
     # ---- Cost Calculation Frame (right side) ----

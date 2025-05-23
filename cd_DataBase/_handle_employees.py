@@ -348,7 +348,9 @@ def save_employee(self, modify_employee_flag = False):
                 self.connection.commit()
                 
                 QMessageBox.information(self, "Success", "Employee modified successfully")
-                self.modify_window_empl.destroy()
+                try: self.add_window_empl.close()
+                except: pass
+        
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Error", f"Failed to modify employee: {e}")
         
@@ -363,7 +365,9 @@ def save_employee(self, modify_employee_flag = False):
                 self.connection.commit()
                 
                 QMessageBox.information(self, "Success", "New employee added successfully!")
-                self.add_window_empl.destroy()
+                # self.add_window_empl.destroy()
+                try: self.add_window_empl.close()
+                except: pass
             except sqlite3.Error as e:
                 QMessageBox.critical(self,  "Error", f"Failed to add employee: {e}")
                
@@ -385,8 +389,16 @@ def save_employee(self, modify_employee_flag = False):
                 QMessageBox.critical(self, "Error", "Selected picture path does not exist.")
                 return
             
-        self.show_table("employees")  # Refresh the employees table view
-        self.handle_window_empl.destroy()
+        # self.show_table("employees")  # Refresh the employees table view
+        # Refresh the customer table in-place
+        self.show_table("employees")
+
+        # Re-wire double-click so you can edit another immediately
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        self.table.cellDoubleClicked.connect(self._on_employee_doubleclick)
     except ValueError as e:
         QMessageBox.critical(None, "Input Error", str(e))
     except sqlite3.Error as e:

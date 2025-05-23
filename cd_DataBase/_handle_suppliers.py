@@ -283,7 +283,9 @@ def save_supplier(self, modify_supplier_flag = False):
                      self.modify_supplier_id_entry.text()))
                 self.connection.commit()
                 QMessageBox.information(self, "Success", "Supplier modified successfully")
-                self.modify_supplier_window.destroy()
+                # close only the modify dialog
+                try: self.modify_supplier_window.close() 
+                except: pass
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Error", f"Failed to modify supplier: {e}")
         else:
@@ -297,17 +299,21 @@ def save_supplier(self, modify_supplier_flag = False):
                                      values["city"], values["country"], values["experience"], values["notes"]))
                 self.connection.commit()
                 QMessageBox.information(self, "Success", "New supplier added successfully!")
-                self.add_supplier_window.destroy()  # Close supplier window
+                try: self.add_supplier_window.close()
+                except: pass
                 
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Error", f"Failed to add supplier: {e}")
         
-        self.show_table("suppliers")  # Refresh the suppliers table view
-        # Close other windows if any
+        # Refresh the suppliers table in-place
+        self.show_table("suppliers")
+
+        # Re-wire double-click so you can immediately edit the next one
         try:
-            self.handle_supplier_window.close()
-        except AttributeError:
-            pass  # or log the error if needed
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        self.table.cellDoubleClicked.connect(self._on_supplier_doubleclick)
     except ValueError as e:
         QMessageBox.critical(None, "Input Error", str(e))
     except sqlite3.Error as e:

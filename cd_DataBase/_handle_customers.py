@@ -345,7 +345,9 @@ def save_customer(self, modify_customer_flag = False):
                      self.modify_customer_id_entry.text()))
                 self.connection.commit()
                 QMessageBox.information(self, "Success", "Customer modified successfully")
-                self.modify_window_customer.destroy()
+                try: self.add_customer_window.close()
+                except: pass
+                
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Error", f"Failed to modify customer: {e}")
         else:
@@ -357,12 +359,31 @@ def save_customer(self, modify_customer_flag = False):
                                      values["company"], values["address"], values["zip_code"], values["city"], values["country"], values["experience"], values["notes"]))
                 self.connection.commit()
                 QMessageBox.information(self, "Success", "New customer added successfully!")
-                self.add_customer_window.destroy()  # Close customer window
+                # self.add_customer_window.destroy()  # Close customer window
+                try: self.add_customer_window.close()
+                except: pass
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Error", f"Failed to add customer: {e}")
                 
-        self.show_table("customers")  # Refresh the customers table view
-        self.handle_window_customer.destroy()
+        # self.show_table("customers")  # Refresh the customers table view
+        # self.handle_window_customer.destroy()
+        # QMessageBox.information(None, "Success", "Customer modified successfully")
+
+        # Close only the modify dialog, keep the handle-window open
+        # try:
+        #     self.handle_window_customer.close()
+        # except Exception:
+        #     pass
+
+        # Refresh the customer table in-place
+        self.show_table("customers")
+
+        # Re-wire double-click so you can edit another immediately
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        self.table.cellDoubleClicked.connect(self._on_customer_doubleclick)
     except ValueError as e:
         QMessageBox.critical(None, "Input Error", str(e))
     except sqlite3.Error as e:

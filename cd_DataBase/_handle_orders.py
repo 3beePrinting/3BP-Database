@@ -339,10 +339,22 @@ def save_order(self, modify_flag=False):
         self.connection.commit()
 
         QMessageBox.information(self, "Success", success_string)
-        
-        window.close()
-        
+
+        # Close only the modify dialog, keep the handle-window open
+        try:
+            self.modify_window_order.close()
+        except Exception:
+            pass
+
+        # Refresh the orders table in-place
         self.show_table("orders")
+
+        # Re-wire double-click so you can edit another immediately
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        self.table.cellDoubleClicked.connect(self._on_order_doubleclick)
 
     except Exception as e:
         QMessageBox.critical(self, "Error", f"Failed to save order:\n{e}")

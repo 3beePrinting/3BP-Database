@@ -31,6 +31,7 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
     
     ## Function to fetch setting from database and fill in all data
     def fetch_printsettings_to_modify():
+        incorrect_info_flag = False              # ← initialize flag
         prinset_id = self.modify_printset_id_entry.text()
         self.prinset_id = prinset_id
         if prinset_id:
@@ -65,7 +66,8 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
         if incorrect_info_flag:
             QMessageBox.warning(None, "Data format/content warning", "Some values fetched in the database for this ID are incorrect. They are automatically removed and set to default in this form.")
 
-    
+    # bind it to `self` so that other methods can call it
+    self.fetch_printsettings_to_modify = fetch_printsettings_to_modify
     # Function to fecth default values already saved in db as ID1
     def fetch_default_values():
         # Function to fetch default values from the database
@@ -175,6 +177,20 @@ def widget_printsettings(self, parent, modify_flag_printsettings = False, from_o
 
     parent.closeEvent = lambda event: self.close_event(event, parent)  
     parent.show()
+
+def _on_print_settings_doubleclick(self, row, col):
+    # 1) grab the CustomerID from column 0
+    prnt_set_id = self.table.item(row, 0).text()
+    if not prnt_set_id:
+        return
+
+    # 2) open the Modify Customer window (this creates self.modify_customer_id_entry)
+    self.open_modify_printsetting_window()
+
+    # 3) now fill that dialog’s ID-entry with your selected ID
+    self.modify_printset_id_entry.setText(prnt_set_id)
+    # now immediately fetch & populate all other fields
+    self.fetch_printsettings_to_modify()
     
 #%% OPEN & ASSIGN PRINT SETTINGS TO ORDER PARTS
 def open_print_settings_window(self):
@@ -338,6 +354,18 @@ def open_handle_printsetting_window(self):
     # See button
     see_printset_button = QPushButton("See Print Settings")
     see_printset_button.clicked.connect(lambda: self.show_table("printsettings"))
+    def _show_and_wire_print_settings():
+        # 1) populate the table
+        self.show_table("printsettings")
+        # 2) remove any old handler
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        # 3) wire the new handler
+        self.table.cellDoubleClicked.connect(self._on_print_settings_doubleclick)
+
+    see_printset_button.clicked.connect(_show_and_wire_print_settings)
     layout.addWidget(see_printset_button)
 
     # Add New button
@@ -435,7 +463,8 @@ def save_printsettings(self, modify_flag_printsettings = False, from_ordertab = 
             self.connection.commit()
             
             QMessageBox.information(None, "Success", "Print setting modified successfully")
-            self.modify_window_printset.destroy()
+            try: self.modify_window_printset.destroy()
+            except: pass
         except sqlite3.Error as e:
             QMessageBox.critical(None, "Error", f"Failed to modify print setting: {e}")
     
@@ -447,17 +476,29 @@ def save_printsettings(self, modify_flag_printsettings = False, from_ordertab = 
             self.connection.commit()
             
             QMessageBox.information(None, "Success", "New print settings added successfully!")
-            self.add_window_printset.destroy()
+            # self.add_window_printset.destroy()
+            try: self.add_window_printset.destroy()
+            except: pass
         except sqlite3.Error as e:
             QMessageBox.critical(None, "Error", f"Failed to add print setting: {e}")
            
     if from_ordertab:
-        self.printsettings_popup.destroy()
-        self.open_print_settings_window()
+            try: self.printsettings_popup.close()
+            except: pass
+            # reopen the small selection popup
+            self.open_print_settings_window()
     else:
-        self.show_table("printsettings")  # Refresh the employees table view
-        self.handle_window_printset.destroy()
-        
+        # 7) refresh the table in place
+        self.show_table("printsettings")
+        # re-wire so you can double-click the next row
+        try:
+            self.table.cellDoubleClicked.disconnect()
+        except TypeError:
+            pass
+        self.table.cellDoubleClicked.connect(self._on_print_settings_doubleclick)
+        # close the handle-window so it doesn’t stay behind
+        try: self.handle_window_printset.close()
+        except: pass
     
 #%% REMOVE PRINT SETTING
 def open_remove_printsettings_window(self, from_ordertab=False):

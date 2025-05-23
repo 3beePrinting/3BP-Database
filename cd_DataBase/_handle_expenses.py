@@ -653,8 +653,27 @@ def save_expense(self, modify_expense_flag=False):
                                    WHERE OCnumber = ?""",
                                 tuple(values[1:] + [values[0]]))
             self.connection.commit()
+            # QMessageBox.information(None, "Success", "Expense modified successfully")
             QMessageBox.information(None, "Success", "Expense modified successfully")
-            self.modify_window_exp.destroy()
+
+            # Close only the modify dialog, keep the handle-window open
+            try:
+                self.modify_window_exp.close()
+            except Exception:
+                pass
+    
+            # Refresh the expenses table in-place
+            self.show_table("expenses")
+    
+            # Re-wire double-click so you can edit another immediately
+            try:
+                self.table.cellDoubleClicked.disconnect()
+            except TypeError:
+                pass
+            self.table.cellDoubleClicked.connect(self._on_expense_doubleclick)
+
+    except Exception as e:
+        QMessageBox.critical(None, "Error", f"Failed to save expense:\n{e}")
 
         # Handle picture attachment
         if hasattr(self, 'selected_image_path') and os.path.exists(self.selected_image_path):
